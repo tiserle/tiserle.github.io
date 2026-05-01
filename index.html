@@ -10,7 +10,7 @@
 :root {
   --yellow: #f5c842; --yellow-fg: #6b2800;
   --red-bg: #e8832a; --red-fg: #3a1000;
-  --green-bg: #2fb248; --green-fg: #003a10;
+  --green-bg: #2FB248; --green-fg: #ffffff;
   --white-bg: #f0ede0; --white-fg: #222;
   --gold: #d4a017;
   --table: #1a5c2e;
@@ -22,14 +22,28 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* 外層填滿視窗，置中遊戲畫面 */
 body {
   font-family: 'Noto Serif TC', serif;
   background: var(--table-dark);
   color: var(--text);
+  width: 100vw;
   height: 100vh;
   overflow: hidden;
   display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 遊戲容器：固定 1280x740，JS 自動等比縮放 */
+#game-root {
+  width: 1280px;
+  height: 740px;
+  flex-shrink: 0;
+  display: flex;
   flex-direction: column;
+  transform-origin: center center;
+  background: var(--table-dark);
 }
 
 /* ── TITLE ── */
@@ -49,8 +63,8 @@ body {
 #main {
   flex: 1;
   display: grid;
-  grid-template-rows: 82px 1fr 175px;
-  grid-template-columns: 110px 1fr 110px;
+  grid-template-rows: 82px 1fr 190px;
+  grid-template-columns: 110px 1fr 160px;
   gap: 5px;
   padding: 5px;
   min-height: 0;
@@ -136,7 +150,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 7px;
   display: flex; flex-direction: column; gap: 3px;
-  padding: 6px 10px;
+  padding: 5px 8px;
 }
 
 #player-top-row {
@@ -154,6 +168,13 @@ body {
   background: rgba(212,160,23,0.07); padding: 2px 4px;
   border-radius: 4px; border: 1px solid rgba(212,160,23,0.28);
   flex-direction: column;
+}
+#player-melds-display .meld-type-label {
+  font-size: 9px; color: rgba(212,160,23,0.75);
+  display: block; margin-bottom: 2px;
+}
+#player-melds-display .meld-cards-row {
+  display: flex; gap: 2px; flex-wrap: wrap;
 }
 .meld-type-label { font-size: 8px; color: rgba(212,160,23,0.65); }
 .meld-cards-row { display: flex; gap: 2px; }
@@ -182,7 +203,7 @@ body {
 .card .c-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.45; margin: 2px 0; }
 .card.yellow { background: var(--yellow);    color: var(--yellow-fg); border-color: #c09000; }
 .card.red    { background: var(--red-bg);    color: var(--red-fg);    border-color: #a05010; }
-.card.green  { background: var(--green-bg);  color: var(--green-fg);  border-color: #308050; }
+.card.green  { background: var(--green-bg);  color: var(--green-fg);  border-color: #1a8030; }
 .card.white  { background: var(--white-bg);  color: var(--white-fg);  border-color: #888880; }
 .card:hover  { transform: translateY(-6px); box-shadow: 2px 8px 14px rgba(0,0,0,0.6); }
 .card.selected { transform: translateY(-14px); box-shadow: 0 0 0 2px var(--gold),2px 10px 14px rgba(0,0,0,0.6); }
@@ -250,14 +271,16 @@ body {
 /* ── TAI BREAKDOWN ── */
 #tai-breakdown {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   padding: 4px 6px;
   background: rgba(0,0,0,0.25);
   border-radius: 5px;
   border: 1px solid rgba(212,160,23,0.2);
-  font-size: 11px;
+  font-size: 10px;
+  max-height: 64px;
+  overflow-y: auto;
 }
 #tai-breakdown .tai-section {
   display: flex;
@@ -330,6 +353,7 @@ body {
 </style>
 </head>
 <body>
+<div id="game-root">
 
 <div id="title-bar">
   <h1>丁家四色牌</h1>
@@ -377,12 +401,21 @@ body {
     </div>
   </div>
 
-  <!-- RIGHT CPU -->
-  <div class="cpu-panel" id="right-cpu" style="grid-row:2;">
-    <div class="cpu-name"><div class="turn-dot" id="dot-3"></div>電腦3</div>
-    <div class="cpu-stats" id="stats-3">手牌20張　0台</div>
-    <div id="pips-3" class="card-pips"></div>
-    <div id="melds-3" class="cpu-melds" style="flex-direction:column;"></div>
+  <!-- RIGHT CPU + 玩家明牌區 -->
+  <div style="grid-row:2;display:flex;flex-direction:column;gap:5px;">
+    <div class="cpu-panel" id="right-cpu" style="flex:0 0 auto;">
+      <div class="cpu-name"><div class="turn-dot" id="dot-3"></div>電腦3</div>
+      <div class="cpu-stats" id="stats-3">手牌20張　0台</div>
+      <div id="pips-3" class="card-pips"></div>
+      <div id="melds-3" class="cpu-melds" style="flex-direction:column;"></div>
+    </div>
+    <div id="player-shown-melds" style="
+      flex:1;background:rgba(10,30,15,0.7);border:1px solid rgba(212,160,23,0.4);
+      border-radius:7px;padding:6px;overflow-y:auto;
+    ">
+      <div style="font-size:9px;color:rgba(212,160,23,0.55);margin-bottom:4px;">你的明牌</div>
+      <div id="player-melds-display"></div>
+    </div>
   </div>
 
   <!-- PLAYER AREA -->
@@ -402,7 +435,6 @@ body {
         <button class="btn" id="btn-pass" onclick="playerPass()" disabled>過</button>
       </div>
     </div>
-    <div id="player-melds"></div>
     <div id="tai-breakdown"></div>
     <div id="player-hand"></div>
   </div>
@@ -413,6 +445,8 @@ body {
   <div id="log-toggle" onclick="toggleLog()">▲ 記錄</div>
 </div>
 <div id="log-drawer"></div>
+
+</div><!-- /game-root -->
 
 <div id="modal-overlay">
   <div id="modal-box">
@@ -466,7 +500,14 @@ function newGame(){
 
 const TO={general:0,advisor:1,elephant:2,chariot:3,horse:4,cannon:5,soldier:6};
 const CO={yellow:0,red:1,green:2,white:3};
-function sortHand(h){h.sort((a,b)=>TO[a.type]-TO[b.type]||CO[a.color]-CO[b.color]);}
+// 排序：兵卒放最後，其餘先依顏色再依大小
+function sortHand(h){
+  h.sort((a,b)=>{
+    const aSol=a.type==='soldier'?1:0, bSol=b.type==='soldier'?1:0;
+    if(aSol!==bSol)return aSol-bSol; // 兵卒墊底
+    return CO[a.color]-CO[b.color]||TO[a.type]-TO[b.type];
+  });
+}
 
 // ── Card elements ──
 function mkCard(card,size,{click=false,sel=false}={}){
@@ -492,17 +533,31 @@ function renderPlayer(){
   const canClick=G.currentPlayer===0&&G.phase==='discard'&&!G.waitingForReact;
   G.hands[0].forEach(c=>{
     const sel=G.selectedCard&&G.selectedCard.id===c.id;
-    el.appendChild(mkCard(c,'normal',{click:canClick,sel}));
+    // B3: 將/帥不可選（顯示暗色提示）
+    const isGeneral=c.type==='general';
+    const isChiCard=G.chiCardIds&&G.chiCardIds.has(c.id);
+    const locked=isGeneral||isChiCard;
+    const cardEl=mkCard(c,'normal',{click:canClick&&!locked,sel});
+    if(locked){cardEl.style.opacity='0.55';cardEl.title=isGeneral?'將/帥不能打出':'吃進的牌不能打出';}
+    el.appendChild(cardEl);
   });
-  const mel=document.getElementById('player-melds');
-  mel.innerHTML='';
-  G.melds[0].forEach(m=>{
-    const grp=document.createElement('div');grp.className='player-meld-group';
-    const lbl=document.createElement('span');lbl.className='meld-type-label';lbl.textContent=mname(m)+' '+mTai(m)+'台';grp.appendChild(lbl);
-    const row=document.createElement('div');row.className='meld-cards-row';
-    m.cards.forEach(c=>row.appendChild(mkCard(c,'sm')));
-    grp.appendChild(row);mel.appendChild(grp);
-  });
+  // 玩家明牌：渲染到右側面板
+  const mel=document.getElementById('player-melds-display');
+  if(mel){
+    mel.innerHTML='';
+    G.melds[0].forEach(m=>{
+      const grp=document.createElement('div');
+      grp.style.cssText='margin-bottom:6px;';
+      const lbl=document.createElement('span');
+      lbl.className='meld-type-label';
+      lbl.textContent=mname(m)+' '+mTai(m)+'台';
+      grp.appendChild(lbl);
+      const row=document.createElement('div');
+      row.className='meld-cards-row';
+      m.cards.forEach(c=>row.appendChild(mkCard(c,'sm')));
+      grp.appendChild(row);mel.appendChild(grp);
+    });
+  }
   renderTaiBreakdown();
   document.getElementById('player-score').textContent=`分數：${G.scores[0]}`;
 }
@@ -1164,7 +1219,22 @@ function showModal(title,body,btns){
 }
 function hideModal(){document.getElementById('modal-overlay').className='';}
 
+// ── 自動縮放：讓 1280x740 的遊戲適應任何視窗大小 ──
+function autoScale(){
+  const root=document.getElementById('game-root');
+  if(!root)return;
+  const scaleX=window.innerWidth/1280;
+  const scaleY=window.innerHeight/740;
+  const scale=Math.min(scaleX,scaleY,1); // 最大1倍，不放大
+  root.style.transform=`scale(${scale})`;
+  // 調整 body 背景（縮放後空白區域）
+  document.body.style.background='var(--table-dark)';
+}
+window.addEventListener('resize',autoScale);
+document.addEventListener('DOMContentLoaded',autoScale);
+
 newGame();
+setTimeout(autoScale,100); // 字型載入後再算一次
 </script>
 </body>
 </html>
