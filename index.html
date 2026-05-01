@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>添丁四色牌</title>
+<title>四色牌</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap');
 
@@ -458,7 +458,8 @@ function newGame(){
   G={deck,hands,melds:[[],[],[],[]],discards:[[],[],[],[]],
     scores:[0,0,0,0],currentPlayer:0,zhuang:0,
     phase:'discard',hasDrawn:true,lastDiscard:null,lastDiscardBy:-1,
-    selectedCard:null,waitingForReact:false,reactors:[],reactDone:[],gameOver:false,round:1};
+    selectedCard:null,waitingForReact:false,reactors:[],reactDone:[],gameOver:false,round:1,
+    chiCardIds:new Set(),mustGang:null}; // B1: 記錄吃進來的牌id，不能打出
   log('新遊戲開始！你是莊家，請先打出一張牌。',true);
   render();updateButtons();
 }
@@ -859,20 +860,27 @@ function chiOpts(pid,card){
     if(c1&&c2)opts.push({type:'che-ma-bao',with:[c1,c2],card});
   }
   if(['general','advisor','elephant'].includes(card.type)){
+    // B3: 將/帥不能被吃出
+    if(card.type==='general')return opts;
     const need=['general','advisor','elephant'].filter(t=>t!==card.type);
     const c1=hand.find(c=>c.color===card.color&&c.type===need[0]);
     const c2=hand.find(c=>c.color===card.color&&c.type===need[1]);
     if(c1&&c2)opts.push({type:'jiang-shi-xiang',with:[c1,c2],card});
   }
   if(card.type==='soldier'){
-    const others=hand.filter(c=>c.type==='soldier'&&c.top===card.top&&c.color!==card.color);
+    // 兵/卒可以混合（兵+卒都算 soldier），只要顏色不同
+    // 三色：hand裡找2張不同色的 soldier
+    const others=hand.filter(c=>c.type==='soldier'&&c.color!==card.color);
     const used=new Set([card.color]),picked=[];
     for(const c of others)if(!used.has(c.color)){picked.push(c);used.add(c.color);}
     if(picked.length>=3)opts.push({type:'quad-soldier',with:picked.slice(0,3),card});
     else if(picked.length>=2)opts.push({type:'tri-soldier',with:picked.slice(0,2),card});
   }
-  const m=hand.find(c=>same(c,card));
-  if(m)opts.push({type:'pair',with:[m],card});
+  // 對子（非將帥才能成對吃）
+  if(card.type!=='general'){
+    const m=hand.find(c=>same(c,card));
+    if(m)opts.push({type:'pair',with:[m],card});
+  }
   return opts;
 }
 
@@ -900,7 +908,9 @@ function updateButtons(){
   const card=G.lastDiscard;
   const ok=!G.gameOver;
   setBtn('btn-draw', ok&&my&&!G.hasDrawn&&G.deck.length>0&&!G.waitingForReact);
-  setBtn('btn-discard', ok&&my&&G.phase==='discard'&&!!G.selectedCard&&!G.waitingForReact);
+  // B2: 強制開槓時不能打牌
+  const forcedGang=G.mustGang&&my&&G.phase==='discard';
+  setBtn('btn-discard', ok&&my&&G.phase==='discard'&&!!G.selectedCard&&!G.waitingForReact&&!forcedGang);
   setBtn('btn-chi',  ok&&react&&canChi(0,card));
   setBtn('btn-peng', ok&&react&&canPeng(0,card));
   setBtn('btn-gang', ok&&((react&&canMGang(0,card))||(my&&G.phase==='discard'&&G.hasDrawn&&!!canAGang(0))));
@@ -920,13 +930,29 @@ function playerDraw(){
   if(G.currentPlayer!==0||G.hasDrawn||G.deck.length===0)return;
   const c=G.deck.pop();G.hands[0].push(c);G.hasDrawn=true;G.phase='discard';
   sortHand(G.hands[0]);log(`你摸了一張牌`);
-  const ag=canAGang(0);if(ag)log(`你有暗槓（${CZH[ag.color]}${ag.top}），可開槓！`,true);
+  // B2: 有暗槓必須強制開
+  const ag=canAGang(0);
+  if(ag){
+    log(`你有暗槓（${CZH[ag.color]}${ag.top}），必須開槓！`,true);
+    G.mustGang=ag; // 標記強制開槓
+  } else {
+    G.mustGang=null;
+  }
   render();updateButtons();
 }
 
 function playerDiscard(){
   if(!G.selectedCard||G.currentPlayer!==0||G.phase!=='discard'||G.waitingForReact)return;
-  doDiscard(0,G.selectedCard);G.selectedCard=null;
+  const card=G.selectedCard;
+  // B1: 吃進來的牌不能打出
+  if(G.chiCardIds.has(card.id)){
+    log('這張牌是吃進來的，不能打出！',true); return;
+  }
+  // B3: 將/帥不能打出去
+  if(card.type==='general'){
+    log('將/帥不能打出去！',true); return;
+  }
+  doDiscard(0,card);G.selectedCard=null;
 }
 
 function doDiscard(pid,card){
@@ -961,6 +987,8 @@ function doChi(pid,opt){
   rmDisc(G.lastDiscardBy,G.lastDiscard);
   const mc=[opt.card,...opt.with];sortHand(mc);
   G.melds[pid].push({type:opt.type,cards:mc,hidden:false});
+  // B1: 記錄吃進來的牌，不能再打出
+  if(pid===0) G.chiCardIds.add(opt.card.id);
   log(`${pn(pid)} 吃了 ${mname({type:opt.type})}！`,true);
   endReact(pid);
 }
@@ -983,7 +1011,10 @@ function doPeng(pid){
 function playerGang(){
   const react=G.waitingForReact&&!G.reactDone.includes(0)&&G.reactors.includes(0);
   if(react&&canMGang(0,G.lastDiscard)){doMGang(0);return;}
-  if(G.currentPlayer===0&&G.phase==='discard'&&G.hasDrawn){const ag=canAGang(0);if(ag)doAGang(0,ag);}
+  if(G.currentPlayer===0&&G.phase==='discard'&&G.hasDrawn){
+    const ag=canAGang(0);
+    if(ag){doAGang(0,ag);G.mustGang=null;}
+  }
 }
 function doMGang(pid){
   const card=G.lastDiscard;
@@ -1094,17 +1125,20 @@ function cpuTurn(pid){
 function cpuDiscard(pid){
   if(G.gameOver||!G.hands[pid].length)return;
   const hand=G.hands[pid];
+  // B3: 將/帥不能打出，過濾掉
+  const discardable=hand.filter(c=>c.type!=='general');
+  if(!discardable.length){log(`${pn(pid)} 無牌可打（全是將帥）`);return;}
   let best=0,bs=Infinity;
-  for(let i=0;i<hand.length;i++){
-    const c=hand[i];
+  for(let i=0;i<discardable.length;i++){
+    const c=discardable[i];
     let s=0;
-    s+=hand.filter((x,j)=>j!==i&&same(x,c)).length*4;
-    const CMB=['chariot','horse','cannon'],GEN=['general','advisor','elephant'];
-    s+=hand.filter((x,j)=>j!==i&&x.color===c.color&&
+    s+=discardable.filter((x,j)=>j!==i&&same(x,c)).length*4;
+    const CMB=['chariot','horse','cannon'],GEN=['advisor','elephant'];
+    s+=discardable.filter((x,j)=>j!==i&&x.color===c.color&&
       ((CMB.includes(c.type)&&CMB.includes(x.type))||(GEN.includes(c.type)&&GEN.includes(x.type)))).length*2;
     if(s<bs){bs=s;best=i;}
   }
-  doDiscard(pid,hand[best]);
+  doDiscard(pid,discardable[best]);
 }
 
 function rmDisc(pid,card){const i=G.discards[pid].findIndex(c=>c.id===card.id);if(i!==-1)G.discards[pid].splice(i,1);}
