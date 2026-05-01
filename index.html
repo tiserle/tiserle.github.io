@@ -22,7 +22,7 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* 外層填滿視窗，置中遊戲畫面 */
+/* 外層填滿視窗 */
 body {
   font-family: 'Noto Serif TC', serif;
   background: var(--table-dark);
@@ -30,19 +30,19 @@ body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
 }
 
-/* 遊戲容器：固定 1280x740，JS 自動等比縮放 */
+/* 遊戲容器：固定 1280x740，transform-origin: top left，JS 計算縮放和偏移 */
 #game-root {
   width: 1280px;
   height: 740px;
-  flex-shrink: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
   display: flex;
   flex-direction: column;
-  transform-origin: center center;
   background: var(--table-dark);
 }
 
@@ -1223,12 +1223,13 @@ function hideModal(){document.getElementById('modal-overlay').className='';}
 function autoScale(){
   const root=document.getElementById('game-root');
   if(!root)return;
-  const scaleX=window.innerWidth/1280;
-  const scaleY=window.innerHeight/740;
-  const scale=Math.min(scaleX,scaleY,1); // 最大1倍，不放大
-  root.style.transform=`scale(${scale})`;
-  // 調整 body 背景（縮放後空白區域）
-  document.body.style.background='var(--table-dark)';
+  const W=window.innerWidth, H=window.innerHeight;
+  const scaleX=W/1280, scaleY=H/740;
+  const scale=Math.min(scaleX,scaleY); // 完全填滿，不留空白
+  // transform-origin: top left，所以要手動偏移讓畫面置中
+  const offsetX=(W - 1280*scale)/2;
+  const offsetY=(H - 740*scale)/2;
+  root.style.transform=`translate(${offsetX}px,${offsetY}px) scale(${scale})`;
 }
 window.addEventListener('resize',autoScale);
 document.addEventListener('DOMContentLoaded',autoScale);
