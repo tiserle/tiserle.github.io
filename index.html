@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>添丁四色牌</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap');
+
+:root {
+  --yellow: #f5c842; --yellow-fg: #6b2800;
+  --red-bg: #e8832a; --red-fg: #3a1000;
+  --green-bg: #b0e0c0; --green-fg: #003a10;
+  --white-bg: #f0ede0; --white-fg: #222;
+  --gold: #d4a017;
+  --table: #1a5c2e;
+  --table-dark: #0d3318;
+  --panel: rgba(10,30,15,0.88);
+  --border: rgba(212,160,23,0.45);
+  --text: #f0e6c8;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Serif TC', serif;
+  background: var(--table-dark);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── TITLE ── */
+#title-bar {
+  flex: 0 0 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  background: rgba(0,0,0,0.55);
+  border-bottom: 1px solid var(--gold);
+}
+#title-bar h1 { font-size: 15px; color: var(--gold); letter-spacing: 4px; }
+#round-info { font-size: 11px; color: rgba(212,160,23,0.7); }
+
+/* ── MAIN ── */
+#main {
+  flex: 1;
+  display: grid;
+  grid-template-rows: 82px 1fr 175px;
+  grid-template-columns: 110px 1fr 110px;
+  gap: 5px;
+  padding: 5px;
+  min-height: 0;
+}
+
+/* ── CPU PANELS ── */
+.cpu-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 8px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cpu-name {
+  font-size: 12px; font-weight: 700; color: var(--gold);
+  display: flex; align-items: center; gap: 5px; white-space: nowrap;
+}
+.turn-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  border: 2px solid var(--gold); background: transparent;
+  transition: background .3s, box-shadow .3s; flex-shrink: 0;
+}
+.turn-dot.active { background: var(--gold); box-shadow: 0 0 7px var(--gold); }
+
+.cpu-stats { font-size: 10px; color: rgba(212,160,23,0.65); }
+
+.card-pips { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; }
+.pip {
+  width: 9px; height: 14px; border-radius: 2px;
+  border: 1px solid rgba(0,0,0,0.4);
+  background: linear-gradient(135deg,#1a3a2a 30%,#245035 60%,#1a3a2a 90%);
+}
+
+.cpu-melds { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; }
+.meld-group { display: flex; gap: 1px; background: rgba(212,160,23,0.07); padding: 2px; border-radius: 3px; border: 1px solid rgba(212,160,23,0.22); }
+
+/* Top spans full width */
+#top-cpu {
+  grid-column: 1/-1; grid-row: 1;
+  flex-direction: row; justify-content: center; gap: 20px; padding: 6px 16px;
+}
+
+/* ── TABLE CENTER ── */
+#table-center {
+  grid-column: 2; grid-row: 2;
+  background: radial-gradient(ellipse at 50% 35%, #1e6434 0%, #0e3a1c 100%);
+  border-radius: 10px; border: 2px solid var(--gold);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 6px; padding: 8px; min-height: 0;
+}
+
+.discard-area { display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow: hidden; }
+.discard-area h4 { font-size: 9px; color: rgba(212,160,23,0.55); margin-bottom: 1px; }
+.discard-cards { display: flex; flex-wrap: wrap; gap: 2px; }
+
+#deck-col {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 6px; min-width: 60px;
+}
+#deck-stack { position: relative; width: 44px; height: 68px; }
+.deck-back {
+  position: absolute; width: 40px; height: 65px;
+  border-radius: 4px; border: 2px solid var(--gold);
+  background: repeating-linear-gradient(45deg,#1a3a2a,#1a3a2a 4px,#245035 4px,#245035 8px);
+}
+#deck-count { font-size: 10px; color: var(--gold); text-align: center; }
+
+#last-disc-col { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+#last-disc-col h4 { font-size: 9px; color: rgba(212,160,23,0.55); }
+
+/* ── PLAYER AREA ── */
+#player-area {
+  grid-column: 1/-1; grid-row: 3;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 6px 10px;
+}
+
+#player-top-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.player-name { font-size: 13px; font-weight: 700; color: var(--gold); display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+#player-tai, #player-score { font-size: 11px; color: rgba(212,160,23,0.75); white-space: nowrap; }
+#pending-banner { font-size: 11px; color: #ffe060; font-weight: 700; letter-spacing: 1px; }
+
+#action-row { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+
+#player-melds { display: flex; gap: 5px; flex-wrap: wrap; min-height: 0; }
+.player-meld-group {
+  display: flex; gap: 2px;
+  background: rgba(212,160,23,0.07); padding: 2px 4px;
+  border-radius: 4px; border: 1px solid rgba(212,160,23,0.28);
+  flex-direction: column;
+}
+.meld-type-label { font-size: 8px; color: rgba(212,160,23,0.65); }
+.meld-cards-row { display: flex; gap: 2px; }
+
+#player-hand {
+  display: flex; gap: 3px; flex-wrap: nowrap;
+  overflow-x: auto; padding-bottom: 3px;
+  min-height: 72px; align-items: flex-end;
+}
+#player-hand::-webkit-scrollbar { height: 3px; }
+#player-hand::-webkit-scrollbar-thumb { background: rgba(212,160,23,0.35); border-radius: 2px; }
+
+/* ── CARDS ── */
+.card {
+  display: inline-flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  width: 44px; height: 68px;
+  border-radius: 5px; border: 2px solid rgba(0,0,0,0.28);
+  cursor: pointer; position: relative;
+  transition: transform .12s, box-shadow .12s;
+  font-weight: 900; line-height: 1.1;
+  box-shadow: 1px 2px 5px rgba(0,0,0,0.5);
+  user-select: none; flex-shrink: 0;
+}
+.card .c-top { font-size: 17px; font-weight: 900; }
+.card .c-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.45; margin: 2px 0; }
+.card.yellow { background: var(--yellow);    color: var(--yellow-fg); border-color: #c09000; }
+.card.red    { background: var(--red-bg);    color: var(--red-fg);    border-color: #a05010; }
+.card.green  { background: var(--green-bg);  color: var(--green-fg);  border-color: #308050; }
+.card.white  { background: var(--white-bg);  color: var(--white-fg);  border-color: #888880; }
+.card:hover  { transform: translateY(-6px); box-shadow: 2px 8px 14px rgba(0,0,0,0.6); }
+.card.selected { transform: translateY(-14px); box-shadow: 0 0 0 2px var(--gold),2px 10px 14px rgba(0,0,0,0.6); }
+
+.card.sm {
+  width: 26px; height: 40px; border-width: 1px; border-radius: 3px;
+  box-shadow: 1px 1px 3px rgba(0,0,0,0.4); cursor: default; flex-shrink: 0;
+}
+.card.sm:hover { transform: none; }
+.card.sm .c-top { font-size: 11px; }
+.card.sm .c-dot { width: 3px; height: 3px; margin: 1px 0; }
+
+.card.xs {
+  width: 18px; height: 28px; border-width: 1px; border-radius: 2px;
+  box-shadow: none; cursor: default; flex-shrink: 0;
+}
+.card.xs:hover { transform: none; }
+.card.xs .c-top { font-size: 8px; }
+.card.xs .c-dot { display: none; }
+
+/* ── BUTTONS ── */
+.btn {
+  padding: 5px 12px;
+  border: 2px solid var(--gold);
+  background: rgba(212,160,23,0.08);
+  color: var(--gold);
+  font-family: 'Noto Serif TC', serif;
+  font-size: 12px; font-weight: 700;
+  border-radius: 5px; cursor: pointer;
+  transition: background .15s, transform .1s;
+  letter-spacing: 1px; white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: rgba(212,160,23,0.22); transform: translateY(-1px); }
+.btn:disabled { opacity: 0.28; cursor: not-allowed; }
+.btn.primary { background: var(--gold); color: #1a1000; border-color: #a07000; }
+.btn.primary:hover:not(:disabled) { background: #e0b820; }
+.btn.danger { border-color: #e05030; color: #e05030; background: rgba(224,80,48,0.07); }
+.btn.danger:hover:not(:disabled) { background: rgba(224,80,48,0.18); }
+.btn.sm-btn { padding: 3px 9px; font-size: 10px; border-width: 1px; }
+
+/* ── LOG BAR ── */
+#log-bar {
+  flex: 0 0 22px;
+  display: flex; align-items: center; padding: 0 12px;
+  background: rgba(0,0,0,0.45); border-top: 1px solid rgba(212,160,23,0.18);
+  font-size: 10px; color: rgba(240,230,200,0.65);
+  gap: 10px; overflow: hidden;
+}
+#log-latest { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#log-latest.imp { color: var(--gold); font-weight: 700; }
+#log-toggle { font-size: 10px; color: rgba(212,160,23,0.45); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+#log-toggle:hover { color: var(--gold); }
+
+#log-drawer {
+  display: none; position: fixed; bottom: 22px; right: 8px;
+  width: 270px; max-height: 190px; overflow-y: auto;
+  background: rgba(8,18,8,0.97); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px; font-size: 10px; z-index: 50;
+  flex-direction: column-reverse;
+}
+#log-drawer.open { display: flex; }
+.log-entry { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.log-entry.imp { color: var(--gold); font-weight: 700; }
+
+/* ── TAI BREAKDOWN ── */
+#tai-breakdown {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 4px 6px;
+  background: rgba(0,0,0,0.25);
+  border-radius: 5px;
+  border: 1px solid rgba(212,160,23,0.2);
+  font-size: 11px;
+}
+#tai-breakdown .tai-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+#tai-breakdown .tai-section-title {
+  font-size: 9px;
+  color: rgba(212,160,23,0.55);
+  white-space: nowrap;
+}
+#tai-breakdown .tai-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+#tai-breakdown .tai-item {
+  background: rgba(212,160,23,0.12);
+  border: 1px solid rgba(212,160,23,0.3);
+  border-radius: 3px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  color: var(--text);
+}
+#tai-breakdown .tai-item.highlight {
+  background: rgba(212,160,23,0.28);
+  color: var(--gold);
+  font-weight: 700;
+}
+#tai-breakdown .tai-total {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--gold);
+  white-space: nowrap;
+  padding: 0 6px;
+  border-left: 1px solid rgba(212,160,23,0.3);
+}
+#tai-breakdown .tai-total.can-win {
+  color: #6f6;
+  text-shadow: 0 0 8px rgba(100,255,100,0.6);
+}
+
+/* ── MODAL ── */
+#modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.78); z-index: 100;
+  align-items: center; justify-content: center;
+}
+#modal-overlay.open { display: flex; }
+#modal-box {
+  background: #0c2210; border: 2px solid var(--gold);
+  border-radius: 12px; padding: 26px 30px;
+  max-width: 420px; width: 90%; text-align: center;
+}
+#modal-box h2 { color: var(--gold); font-size: 20px; margin-bottom: 10px; }
+#modal-box p { margin: 5px 0; font-size: 13px; line-height: 1.6; }
+.modal-btns { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+
+.chi-option {
+  display: inline-flex; flex-direction: column; align-items: center;
+  gap: 4px; padding: 7px 10px; margin: 4px;
+  border: 2px solid var(--gold); border-radius: 7px;
+  background: rgba(212,160,23,0.07); cursor: pointer;
+  transition: background .15s;
+}
+.chi-option:hover { background: rgba(212,160,23,0.22); }
+.chi-option .chi-cards { display: flex; gap: 3px; }
+.chi-option .chi-name { font-size: 10px; color: rgba(212,160,23,0.75); }
+</style>
+</head>
+<body>
+
+<div id="title-bar">
+  <h1>添丁四色牌</h1>
+  <div id="round-info">第1局　莊家：你</div>
+  <button class="btn sm-btn" onclick="newGame()">新遊戲</button>
+</div>
+
+<div id="main">
+
+  <!-- TOP CPU -->
+  <div class="cpu-panel" id="top-cpu">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;">
+      <div class="cpu-name"><div class="turn-dot" id="dot-2"></div>電腦2（對家）</div>
+      <div class="cpu-stats" id="stats-2">手牌20張　0台</div>
+    </div>
+    <div id="pips-2" class="card-pips" style="flex:1;"></div>
+    <div id="melds-2" class="cpu-melds"></div>
+  </div>
+
+  <!-- LEFT CPU -->
+  <div class="cpu-panel" id="left-cpu" style="grid-row:2;">
+    <div class="cpu-name"><div class="turn-dot" id="dot-1"></div>電腦1</div>
+    <div class="cpu-stats" id="stats-1">手牌20張　0台</div>
+    <div id="pips-1" class="card-pips"></div>
+    <div id="melds-1" class="cpu-melds" style="flex-direction:column;"></div>
+  </div>
+
+  <!-- TABLE CENTER -->
+  <div id="table-center">
+    <div class="discard-area">
+      <h4>電腦1棄牌</h4><div class="discard-cards" id="disc-1"></div>
+      <h4 style="margin-top:5px;">電腦2棄牌</h4><div class="discard-cards" id="disc-2"></div>
+    </div>
+    <div id="deck-col">
+      <div id="deck-stack"></div>
+      <div id="deck-count">牌堆 0張</div>
+      <div id="last-disc-col">
+        <h4>最新出牌</h4>
+        <div id="last-disc"></div>
+      </div>
+    </div>
+    <div class="discard-area">
+      <h4>電腦3棄牌</h4><div class="discard-cards" id="disc-3"></div>
+      <h4 style="margin-top:5px;">你的棄牌</h4><div class="discard-cards" id="disc-0"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT CPU -->
+  <div class="cpu-panel" id="right-cpu" style="grid-row:2;">
+    <div class="cpu-name"><div class="turn-dot" id="dot-3"></div>電腦3</div>
+    <div class="cpu-stats" id="stats-3">手牌20張　0台</div>
+    <div id="pips-3" class="card-pips"></div>
+    <div id="melds-3" class="cpu-melds" style="flex-direction:column;"></div>
+  </div>
+
+  <!-- PLAYER AREA -->
+  <div id="player-area" style="grid-column:1/-1;grid-row:3;">
+    <div id="player-top-row">
+      <div class="player-name"><div class="turn-dot" id="dot-0"></div>你（莊家）</div>
+      <div id="player-tai">0台</div>
+      <div id="player-score">分數：0</div>
+      <div id="pending-banner"></div>
+      <div id="action-row">
+        <button class="btn" id="btn-draw" onclick="playerDraw()">摸牌</button>
+        <button class="btn primary" id="btn-discard" onclick="playerDiscard()" disabled>打牌</button>
+        <button class="btn" id="btn-chi"  onclick="playerChi()"  disabled>吃</button>
+        <button class="btn" id="btn-peng" onclick="playerPeng()" disabled>碰</button>
+        <button class="btn" id="btn-gang" onclick="playerGang()" disabled>槓</button>
+        <button class="btn danger" id="btn-hu" onclick="playerHu()" disabled>胡</button>
+        <button class="btn" id="btn-pass" onclick="playerPass()" disabled>過</button>
+      </div>
+    </div>
+    <div id="player-melds"></div>
+    <div id="tai-breakdown"></div>
+    <div id="player-hand"></div>
+  </div>
+</div>
+
+<div id="log-bar">
+  <div id="log-latest">遊戲開始</div>
+  <div id="log-toggle" onclick="toggleLog()">▲ 記錄</div>
+</div>
+<div id="log-drawer"></div>
+
+<div id="modal-overlay">
+  <div id="modal-box">
+    <h2 id="modal-title"></h2>
+    <div id="modal-body"></div>
+    <div class="modal-btns" id="modal-btns"></div>
+  </div>
+</div>
+
+<script>
+const CZH={yellow:'黃',red:'紅',green:'綠',white:'白'};
+
+// 黃/紅 → 紅方棋子；綠/白 → 黑方棋子
+const COLOR_PIECES = {
+  yellow: [{top:'帥',type:'general'},{top:'仕',type:'advisor'},{top:'相',type:'elephant'},
+           {top:'俥',type:'chariot'},{top:'傌',type:'horse'},{top:'炮',type:'cannon'},{top:'兵',type:'soldier'}],
+  red:    [{top:'帥',type:'general'},{top:'仕',type:'advisor'},{top:'相',type:'elephant'},
+           {top:'俥',type:'chariot'},{top:'傌',type:'horse'},{top:'炮',type:'cannon'},{top:'兵',type:'soldier'}],
+  green:  [{top:'將',type:'general'},{top:'士',type:'advisor'},{top:'象',type:'elephant'},
+           {top:'車',type:'chariot'},{top:'馬',type:'horse'},{top:'包',type:'cannon'},{top:'卒',type:'soldier'}],
+  white:  [{top:'將',type:'general'},{top:'士',type:'advisor'},{top:'象',type:'elephant'},
+           {top:'車',type:'chariot'},{top:'馬',type:'horse'},{top:'包',type:'cannon'},{top:'卒',type:'soldier'}],
+};
+const COLORS = ['yellow','red','green','white'];
+
+function buildDeck(){
+  const d=[];let id=0;
+  for(const color of COLORS)
+    for(const p of COLOR_PIECES[color])
+      for(let c=0;c<4;c++)  // 每色每張牌4張
+        d.push({id:id++, color, top:p.top, type:p.type});
+  return d; // 4色 × 7張 × 4張 = 112張
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+let G={};
+
+function newGame(){
+  hideModal();
+  const deck=shuffle(buildDeck());
+  const hands=[deck.splice(0,21),deck.splice(0,20),deck.splice(0,20),deck.splice(0,20)];
+  for(let i=0;i<4;i++)sortHand(hands[i]);
+  G={deck,hands,melds:[[],[],[],[]],discards:[[],[],[],[]],
+    scores:[0,0,0,0],currentPlayer:0,zhuang:0,
+    phase:'discard',hasDrawn:true,lastDiscard:null,lastDiscardBy:-1,
+    selectedCard:null,waitingForReact:false,reactors:[],reactDone:[],gameOver:false,round:1};
+  log('新遊戲開始！你是莊家，請先打出一張牌。',true);
+  render();updateButtons();
+}
+
+const TO={general:0,advisor:1,elephant:2,chariot:3,horse:4,cannon:5,soldier:6};
+const CO={yellow:0,red:1,green:2,white:3};
+function sortHand(h){h.sort((a,b)=>TO[a.type]-TO[b.type]||CO[a.color]-CO[b.color]);}
+
+// ── Card elements ──
+function mkCard(card,size,{click=false,sel=false}={}){
+  const el=document.createElement('div');
+  el.className=`card ${card.color}${size==='sm'?' sm':size==='xs'?' xs':''}${sel?' selected':''}`;
+  const t=document.createElement('div');t.className='c-top';t.textContent=card.top;el.appendChild(t);
+  const d=document.createElement('div');d.className='c-dot';el.appendChild(d);
+  if(click)el.addEventListener('click',()=>selectCard(card));
+  return el;
+}
+function mkPip(){const e=document.createElement('div');e.className='pip';return e;}
+
+// ── Render ──
+function render(){
+  renderPlayer();
+  for(let i=1;i<4;i++)renderCPU(i);
+  renderDiscards();renderDeck();renderLastDiscard();renderDots();renderBanner();
+}
+
+function renderPlayer(){
+  const el=document.getElementById('player-hand');
+  el.innerHTML='';
+  const canClick=G.currentPlayer===0&&G.phase==='discard'&&!G.waitingForReact;
+  G.hands[0].forEach(c=>{
+    const sel=G.selectedCard&&G.selectedCard.id===c.id;
+    el.appendChild(mkCard(c,'normal',{click:canClick,sel}));
+  });
+  const mel=document.getElementById('player-melds');
+  mel.innerHTML='';
+  G.melds[0].forEach(m=>{
+    const grp=document.createElement('div');grp.className='player-meld-group';
+    const lbl=document.createElement('span');lbl.className='meld-type-label';lbl.textContent=mname(m)+' '+mTai(m)+'台';grp.appendChild(lbl);
+    const row=document.createElement('div');row.className='meld-cards-row';
+    m.cards.forEach(c=>row.appendChild(mkCard(c,'sm')));
+    grp.appendChild(row);mel.appendChild(grp);
+  });
+  renderTaiBreakdown();
+  document.getElementById('player-score').textContent=`分數：${G.scores[0]}`;
+}
+
+function renderTaiBreakdown(){
+  const el=document.getElementById('tai-breakdown');
+  el.innerHTML='';
+  const hand=G.hands[0], melds=G.melds[0];
+
+  // 桌面台數
+  const meldTaiSum=meldsTai(0);
+
+  // 手牌分析：用 evaluateHand 取得正確的 canWin 判定
+  const soldiers=hand.filter(c=>c.type==='soldier');
+  const generals=hand.filter(c=>c.type==='general');
+  const others=hand.filter(c=>c.type!=='soldier'&&c.type!=='general');
+  const solResult=calcSoldierTai(soldiers);
+  const genTai=calcGeneralTai(generals);
+  const grpResult=bestGroupTai(hand.filter(c=>c.type!=='soldier')); // generals進去
+  const canWin=solResult.canWin&&grpResult.canWin;
+  const handTai=canWin ? solResult.tai+grpResult.tai : 0;
+  const total=meldTaiSum+(canWin?handTai:0);
+
+  // 桌面區塊
+  if(melds.length>0){
+    const sec=makeTaiSection('桌面');
+    melds.forEach(m=>{
+      const t=mTai(m);
+      addTaiItem(sec, mname(m)+' '+t+'台', t>0);
+    });
+    addTaiTotal(sec, meldTaiSum+'台', false);
+    el.appendChild(sec);
+  }
+
+  // 手牌區塊
+  const handSec=makeTaiSection('手牌（最佳）');
+  if(generals.length>0){
+    const t=calcGeneralDetailTai(generals);
+    t.forEach(({label,tai})=>addTaiItem(handSec,label+' '+tai+'台',tai>0));
+  }
+  if(soldiers.length>0){
+    const sLabel=soldierLabel(soldiers);
+    if(solResult.canWin){
+      const desc=solResult.tai>0 ? sLabel+' '+solResult.tai+'台' : sLabel+'（對子，0台）';
+      addTaiItem(handSec, desc, solResult.tai>0);
+    } else {
+      addTaiItem(handSec, sLabel+'（單張散牌，不能胡）', false);
+    }
+  }
+  if(!grpResult.canWin && others.length>0){
+    addTaiItem(handSec,'其他牌未完整成組', false);
+  } else if(grpResult.canWin && grpResult.tai>0){
+    addTaiItem(handSec,'牌組 '+grpResult.tai+'台', true);
+  }
+  if(canWin) addTaiTotal(handSec, handTai+'台', false);
+  el.appendChild(handSec);
+
+  // 總計
+  const totalDiv=document.createElement('div');
+  totalDiv.className=`tai-total${(canWin&&total>=10)?' can-win':''}`;
+  totalDiv.textContent='總計 '+total+'台'+(canWin&&total>=10?' ✓':'');
+  el.appendChild(totalDiv);
+
+  document.getElementById('player-tai').textContent=total+'台';
+}
+
+function makeTaiSection(title){
+  const sec=document.createElement('div');sec.className='tai-section';
+  const t=document.createElement('div');t.className='tai-section-title';t.textContent=title;sec.appendChild(t);
+  const items=document.createElement('div');items.className='tai-items';sec.appendChild(items);
+  return sec;
+}
+function addTaiItem(sec,text,hl=false){
+  const item=document.createElement('div');
+  item.className='tai-item'+(hl?' highlight':'');
+  item.textContent=text;
+  sec.querySelector('.tai-items').appendChild(item);
+}
+function addTaiTotal(sec,text){
+  const t=document.createElement('div');
+  t.style.cssText='font-size:11px;font-weight:700;color:var(--gold);padding-top:2px;';
+  t.textContent='小計 '+text;
+  sec.appendChild(t);
+}
+
+function soldierLabel(soldiers){
+  const colors=new Set(soldiers.map(c=>c.color));
+  const tops=[...new Set(soldiers.map(c=>c.top))].join('/');
+  return tops+(colors.size>=4?'（四色）':colors.size>=3?'（三色）':'（'+soldiers.length+'張）');
+}
+
+function calcGeneralDetailTai(generals){
+  const groups={};
+  for(const c of generals){const k=`${c.color}-${c.top}`;if(!groups[k])groups[k]=[];groups[k].push(c);}
+  return Object.entries(groups).map(([k,cs])=>({
+    label: cs[0].top+'（'+[...new Set(cs.map(c=>c.color))].map(c=>({yellow:'黃',red:'紅',green:'綠',white:'白'}[c])).join('')+'）'+cs.length+'張',
+    tai: cs.length>=4?10:cs.length===3?6:cs.length===2?2:1
+  }));
+}
+
+function renderCPU(i){
+  const n=G.hands[i].length, tai=meldsTai(i);
+  document.getElementById(`stats-${i}`).textContent=`手牌${n}張　${tai}台`;
+  const pe=document.getElementById(`pips-${i}`);pe.innerHTML='';
+  for(let k=0;k<n;k++)pe.appendChild(mkPip());
+  const me=document.getElementById(`melds-${i}`);me.innerHTML='';
+  G.melds[i].forEach(m=>{
+    const grp=document.createElement('div');grp.className='meld-group';
+    m.cards.forEach(c=>grp.appendChild(mkCard(c,'xs')));
+    me.appendChild(grp);
+  });
+}
+
+function renderDiscards(){
+  for(let i=0;i<4;i++){
+    const el=document.getElementById(`disc-${i}`);el.innerHTML='';
+    G.discards[i].slice(-9).forEach(c=>el.appendChild(mkCard(c,'sm')));
+  }
+}
+
+function renderDeck(){
+  const s=document.getElementById('deck-stack');s.innerHTML='';
+  const n=Math.min(G.deck.length,5);
+  for(let i=0;i<n;i++){
+    const d=document.createElement('div');d.className='deck-back';
+    d.style.top=`${-i*2}px`;d.style.left=`${-i*1}px`;s.appendChild(d);
+  }
+  document.getElementById('deck-count').textContent=`牌堆 ${G.deck.length}張`;
+}
+
+function renderLastDiscard(){
+  const el=document.getElementById('last-disc');el.innerHTML='';
+  if(G.lastDiscard)el.appendChild(mkCard(G.lastDiscard,'normal'));
+}
+
+function renderDots(){
+  for(let i=0;i<4;i++){
+    const d=document.getElementById(`dot-${i}`);
+    if(d)d.className=`turn-dot${G.currentPlayer===i&&!G.waitingForReact?' active':''}`;
+  }
+}
+
+function renderBanner(){
+  const b=document.getElementById('pending-banner');
+  if(G.waitingForReact&&!G.reactDone.includes(0)&&G.reactors.includes(0))b.textContent='⚡ 可吃/碰/槓/胡！';
+  else if(G.waitingForReact)b.textContent='等待其他玩家…';
+  else if(G.currentPlayer===0&&!G.hasDrawn)b.textContent='請摸牌';
+  else if(G.currentPlayer===0&&G.phase==='discard')b.textContent='請選牌打出';
+  else b.textContent=`電腦${G.currentPlayer}思考中…`;
+}
+
+// ── Tai calculation ──
+function meldsTai(pid){return G.melds[pid].reduce((s,m)=>s+mTai(m),0);}
+
+// ══════════════════════════════════════════
+//  台數計算（完整版）
+//  手牌必須能完整分組才能胡牌
+// ══════════════════════════════════════════
+
+// mTai: 桌面（明牌）台數
+function mTai(m){
+  switch(m.type){
+    case 'che-ma-bao':      return 1;
+    case 'jiang-shi-xiang': return 2;
+    case 'tri-soldier':     return 3;
+    case 'quad-soldier':    return 4;
+    case 'pair':            return 0;
+    case 'ming-ke':         return m.isGeneral ? 4 : 1;  // 將/帥碰=4台, 其他碰=1台
+    case 'ming-gang':       return m.isGeneral ? 8 : 6;  // 將/帥明槓=8台, 其他=6台
+    case 'an-gang':         return m.isGeneral ? 10 : 8; // 將/帥暗槓=10台, 其他=8台
+    default: return 0;
+  }
+}
+
+// 取得牌組名稱
+function mname(m){
+  return{
+    'che-ma-bao':'車馬包','jiang-shi-xiang':'將士象',
+    'tri-soldier':'三色兵卒','quad-soldier':'四色兵卒',
+    'pair':'對子','ming-ke':'碰','ming-gang':'明槓','an-gang':'暗槓'
+  }[m.type]||m.type;
+}
+
+// 計算總台數（手牌+桌面）
+// 回傳 {canWin, tai}
+function calcTai(hand, melds) {
+  const meldTaiSum = melds.reduce((s,m)=>s+mTai(m), 0);
+  const {canWin, tai} = evaluateHand(hand);
+  if (!canWin) return 0;
+  return meldTaiSum + tai;
+}
+
+function evaluateHand(hand) {
+  if (hand.length === 0) return {canWin: true, tai: 0};
+
+  // 兵/卒規則：
+  // - 三色或四色：合法，計台數（3台或4台）
+  // - 同色兩張（對子）：合法，0台
+  // - 單張：不合法，不能胡
+  const soldiers = hand.filter(c=>c.type==='soldier');
+  const soldierResult = calcSoldierTai(soldiers);
+  if (!soldierResult.canWin) return {canWin: false, tai: 0};
+
+  // 其他牌（含將/帥）必須完整分組
+  const groupables = hand.filter(c=>c.type!=='soldier');
+  const result = bestGroupTai(groupables);
+  if (!result.canWin) return {canWin: false, tai: 0};
+
+  return {canWin: true, tai: soldierResult.tai + result.tai};
+}
+
+// 兵卒合法性與台數：
+// 無兵卒 → canWin:true, 0台
+// 四色（含） → canWin:true, 4台
+// 三色（含） → canWin:true, 3台
+// 同色2張（對子）→ canWin:true, 0台（合法但不計台）
+// 單張（散牌）→ canWin:false（不能胡）
+function calcSoldierTai(soldiers) {
+  if (!soldiers.length) return {canWin: true, tai: 0};
+
+  // 按顏色分組
+  const byColor = {};
+  for (const c of soldiers) {
+    if (!byColor[c.color]) byColor[c.color] = [];
+    byColor[c.color].push(c);
+  }
+
+  // 先確認每個顏色至少兩張（對子），或整體達到三/四色
+  const colorSet = new Set(soldiers.map(c=>c.color));
+
+  // 三色或四色：不管每色幾張，都合法且計台
+  if (colorSet.size >= 4) return {canWin: true, tai: 4};
+  if (colorSet.size >= 3) return {canWin: true, tai: 3};
+
+  // 1-2色：每色必須至少兩張（成對），否則有散牌不能胡
+  for (const cards of Object.values(byColor)) {
+    if (cards.length < 2) return {canWin: false, tai: 0}; // 單張散牌
+  }
+  // 每色都成對，合法但0台
+  return {canWin: true, tai: 0};
+}
+
+// 將/帥台數（手牌中）
+// 同色1張=1台, 2張=2台, 3張=6台, 4張=10台
+function calcGeneralTai(generals) {
+  if (!generals.length) return 0;
+  const groups = {};
+  for (const c of generals) {
+    const k=`${c.color}-${c.top}`;
+    if (!groups[k]) groups[k]=[];
+    groups[k].push(c);
+  }
+  let tai = 0;
+  for (const cards of Object.values(groups)) {
+    if      (cards.length >= 4) tai += 10;
+    else if (cards.length === 3) tai += 6;
+    else if (cards.length === 2) tai += 2;
+    else                         tai += 1; // 單張
+  }
+  return tai;
+}
+
+// 所有非兵卒的牌完整分組，遞迴找最高台數
+// 將/帥：可以單張、對子、或組成將士象
+// 其他牌：必須兩兩成對或三張成組，不允許散牌
+// 回傳 {canWin, tai}
+function bestGroupTai(cards) {
+  if (!cards.length) return {canWin: true, tai: 0};
+  let best = {canWin: false, tai: 0};
+  const first = cards[0], rest = cards.slice(1);
+  const sameCards = rest.filter(c=>same(c,first));
+
+  function tryMeld(tai, remain) {
+    const sub = bestGroupTai(remain);
+    if (sub.canWin) {
+      const total = tai + sub.tai;
+      if (!best.canWin || total > best.tai) best = {canWin: true, tai: total};
+    }
+  }
+
+  // ── 將/帥：特殊規則，可單張/對子/暗刻/暗槓，無需湊牌組 ──
+  if (first.type === 'general') {
+    // 暗槓（同色4張）= 10台
+    if (sameCards.length >= 3) {
+      tryMeld(10, rest.filter(c=>!sameCards.slice(0,3).includes(c)));
+    }
+    // 暗刻（同色3張）= 6台
+    if (sameCards.length >= 2) {
+      tryMeld(6, rest.filter(c=>!sameCards.slice(0,2).includes(c)));
+    }
+    // 對子（同色2張）= 2台
+    if (sameCards.length >= 1) {
+      tryMeld(2, rest.filter(c=>c!==sameCards[0]));
+    }
+    // 單張 = 1台（將/帥單支可獨立存在）
+    tryMeld(1, rest);
+    // 將士象（同色 general+advisor+elephant）= 2台
+    // 注意：將士象裡general只貢獻1台，但advisor+elephant另計，
+    // 所以整組2台已包含general的1台貢獻
+    const c1 = rest.find(c=>c.color===first.color&&c.type==='advisor');
+    const c2 = rest.find(c=>c.color===first.color&&c.type==='elephant');
+    if (c1 && c2) tryMeld(2, rest.filter(c=>c!==c1&&c!==c2));
+    return best;
+  }
+
+  // ── 仕/士、相/象：必須成組，不能散牌 ──
+  if (['advisor','elephant'].includes(first.type)) {
+    // 暗槓 = 8台
+    if (sameCards.length >= 3) tryMeld(8, rest.filter(c=>!sameCards.slice(0,3).includes(c)));
+    // 暗刻 = 3台
+    if (sameCards.length >= 2) tryMeld(3, rest.filter(c=>!sameCards.slice(0,2).includes(c)));
+    // 將士象（同色 general+advisor+elephant）= 2台
+    const need = ['general','advisor','elephant'].filter(t=>t!==first.type);
+    const c1 = rest.find(c=>c.color===first.color&&c.type===need[0]);
+    const c2 = rest.find(c=>c.color===first.color&&c.type===need[1]);
+    if (c1 && c2) tryMeld(2, rest.filter(c=>c!==c1&&c!==c2));
+    // 對子 = 0台
+    const pair = rest.find(c=>same(c,first));
+    if (pair) tryMeld(0, rest.filter(c=>c!==pair));
+    return best;
+  }
+
+  // ── 俥/車、傌/馬、炮/包：必須成組 ──
+  if (['chariot','horse','cannon'].includes(first.type)) {
+    // 暗槓 = 8台
+    if (sameCards.length >= 3) tryMeld(8, rest.filter(c=>!sameCards.slice(0,3).includes(c)));
+    // 暗刻 = 3台
+    if (sameCards.length >= 2) tryMeld(3, rest.filter(c=>!sameCards.slice(0,2).includes(c)));
+    // 車馬包 = 1台
+    const need = ['chariot','horse','cannon'].filter(t=>t!==first.type);
+    const c1 = rest.find(c=>c.color===first.color&&c.type===need[0]);
+    const c2 = rest.find(c=>c.color===first.color&&c.type===need[1]);
+    if (c1 && c2) tryMeld(1, rest.filter(c=>c!==c1&&c!==c2));
+    // 對子 = 0台
+    const pair = rest.find(c=>same(c,first));
+    if (pair) tryMeld(0, rest.filter(c=>c!==pair));
+    return best;
+  }
+
+  return best; // 未知牌型，不能成組
+}
+
+// ── Checks ──
+function same(a,b){return a.color===b.color&&a.top===b.top;}
+function cntIn(hand,card){return hand.filter(c=>same(c,card)).length;}
+
+
+function chiOpts(pid,card){
+  if(!card||G.lastDiscardBy===pid)return[];
+  const hand=G.hands[pid],opts=[];
+  if(['chariot','horse','cannon'].includes(card.type)){
+    const need=['chariot','horse','cannon'].filter(t=>t!==card.type);
+    const c1=hand.find(c=>c.color===card.color&&c.type===need[0]);
+    const c2=hand.find(c=>c.color===card.color&&c.type===need[1]);
+    if(c1&&c2)opts.push({type:'che-ma-bao',with:[c1,c2],card});
+  }
+  if(['general','advisor','elephant'].includes(card.type)){
+    const need=['general','advisor','elephant'].filter(t=>t!==card.type);
+    const c1=hand.find(c=>c.color===card.color&&c.type===need[0]);
+    const c2=hand.find(c=>c.color===card.color&&c.type===need[1]);
+    if(c1&&c2)opts.push({type:'jiang-shi-xiang',with:[c1,c2],card});
+  }
+  if(card.type==='soldier'){
+    const others=hand.filter(c=>c.type==='soldier'&&c.top===card.top&&c.color!==card.color);
+    const used=new Set([card.color]),picked=[];
+    for(const c of others)if(!used.has(c.color)){picked.push(c);used.add(c.color);}
+    if(picked.length>=3)opts.push({type:'quad-soldier',with:picked.slice(0,3),card});
+    else if(picked.length>=2)opts.push({type:'tri-soldier',with:picked.slice(0,2),card});
+  }
+  const m=hand.find(c=>same(c,card));
+  if(m)opts.push({type:'pair',with:[m],card});
+  return opts;
+}
+
+function canChi(pid,card){return chiOpts(pid,card).length>0;}
+function canPeng(pid,card){if(!card||G.lastDiscardBy===pid)return false;return cntIn(G.hands[pid],card)>=2;}
+function canMGang(pid,card){if(!card||G.lastDiscardBy===pid)return false;return cntIn(G.hands[pid],card)>=3;}
+function canAGang(pid){
+  const cnt={};
+  for(const c of G.hands[pid]){const k=`${c.color}-${c.top}`;cnt[k]=(cnt[k]||0)+1;if(cnt[k]>=4)return c;}
+  return null;
+}
+function canHuR(pid,card){
+  if(!card||G.lastDiscardBy===pid)return false;
+  const testHand=[...G.hands[pid],card];
+  return calcTai(testHand,G.melds[pid])>=10;
+}
+function canHuS(pid){
+  return calcTai(G.hands[pid],G.melds[pid])>=10;
+}
+
+// ── Buttons ──
+function updateButtons(){
+  const my=G.currentPlayer===0;
+  const react=G.waitingForReact&&!G.reactDone.includes(0)&&G.reactors.includes(0);
+  const card=G.lastDiscard;
+  const ok=!G.gameOver;
+  setBtn('btn-draw', ok&&my&&!G.hasDrawn&&G.deck.length>0&&!G.waitingForReact);
+  setBtn('btn-discard', ok&&my&&G.phase==='discard'&&!!G.selectedCard&&!G.waitingForReact);
+  setBtn('btn-chi',  ok&&react&&canChi(0,card));
+  setBtn('btn-peng', ok&&react&&canPeng(0,card));
+  setBtn('btn-gang', ok&&((react&&canMGang(0,card))||(my&&G.phase==='discard'&&G.hasDrawn&&!!canAGang(0))));
+  setBtn('btn-hu',   ok&&((react&&canHuR(0,card))||(my&&G.phase==='discard'&&G.hasDrawn&&canHuS(0))));
+  setBtn('btn-pass', ok&&react);
+}
+function setBtn(id,en){document.getElementById(id).disabled=!en;}
+
+function selectCard(card){
+  if(G.currentPlayer!==0||G.phase!=='discard'||G.waitingForReact)return;
+  G.selectedCard=(G.selectedCard&&G.selectedCard.id===card.id)?null:card;
+  renderPlayer();updateButtons();
+}
+
+// ── Player actions ──
+function playerDraw(){
+  if(G.currentPlayer!==0||G.hasDrawn||G.deck.length===0)return;
+  const c=G.deck.pop();G.hands[0].push(c);G.hasDrawn=true;G.phase='discard';
+  sortHand(G.hands[0]);log(`你摸了一張牌`);
+  const ag=canAGang(0);if(ag)log(`你有暗槓（${CZH[ag.color]}${ag.top}），可開槓！`,true);
+  render();updateButtons();
+}
+
+function playerDiscard(){
+  if(!G.selectedCard||G.currentPlayer!==0||G.phase!=='discard'||G.waitingForReact)return;
+  doDiscard(0,G.selectedCard);G.selectedCard=null;
+}
+
+function doDiscard(pid,card){
+  const i=G.hands[pid].findIndex(c=>c.id===card.id);if(i===-1)return;
+  G.hands[pid].splice(i,1);G.discards[pid].push(card);
+  G.lastDiscard=card;G.lastDiscardBy=pid;G.hasDrawn=false;
+  log(`${pn(pid)} 打出 ${CZH[card.color]}${card.top}`);
+  render();startReact(pid,card);
+}
+
+function playerChi(){
+  if(!G.waitingForReact||G.reactDone.includes(0))return;
+  const opts=chiOpts(0,G.lastDiscard);if(!opts.length)return;
+  if(opts.length===1)doChi(0,opts[0]);else showChiModal(opts);
+}
+function showChiModal(opts){
+  let html='<p>選擇吃牌組合：</p><div style="display:flex;flex-wrap:wrap;justify-content:center;margin-top:8px;">';
+  opts.forEach((o,i)=>{
+    const cards=[o.card,...o.with];
+    const ch=cards.map(c=>`<div style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:33px;border-radius:3px;border:1px solid rgba(0,0,0,.3);font-size:10px;font-weight:900;background:${cbg(c.color)};color:${cfg(c.color)};">${c.top}</div>`).join('');
+    html+=`<div class="chi-option" onclick="doChiC(${i})"><div class="chi-cards">${ch}</div><div class="chi-name">${mname({type:o.type})}</div></div>`;
+  });
+  html+='</div>';
+  window._cOpts=opts;showModal('選擇吃牌',html,[]);
+}
+window.doChiC=function(i){hideModal();doChi(0,window._cOpts[i]);};
+function cbg(c){return{yellow:'#f5c842',red:'#f8c8b8',green:'#b0e0c0',white:'#f0ede0'}[c]||'#eee';}
+function cfg(c){return{yellow:'#6b2800',red:'#5a0000',green:'#003a10',white:'#222'}[c]||'#000';}
+
+function doChi(pid,opt){
+  for(const c of opt.with){const i=G.hands[pid].findIndex(x=>x.id===c.id);if(i!==-1)G.hands[pid].splice(i,1);}
+  rmDisc(G.lastDiscardBy,G.lastDiscard);
+  const mc=[opt.card,...opt.with];sortHand(mc);
+  G.melds[pid].push({type:opt.type,cards:mc,hidden:false});
+  log(`${pn(pid)} 吃了 ${mname({type:opt.type})}！`,true);
+  endReact(pid);
+}
+
+function playerPeng(){if(!G.waitingForReact||G.reactDone.includes(0)||!canPeng(0,G.lastDiscard))return;doPeng(0);}
+function doPeng(pid){
+  const card=G.lastDiscard;
+  // 從手牌取出實際的牌物件（保留正確的 side/top/color）
+  const taken=[];
+  for(let i=G.hands[pid].length-1;i>=0&&taken.length<2;i--){
+    if(same(G.hands[pid][i],card)){taken.push(G.hands[pid].splice(i,1)[0]);}
+  }
+  rmDisc(G.lastDiscardBy,card);
+  const mc=[card,...taken]; // 3張，全部是正確的牌物件
+  G.melds[pid].push({type:'ming-ke',cards:mc,hidden:false,isGeneral:card.type==='general'});
+  log(`${pn(pid)} 碰了 ${CZH[card.color]}${card.top}！`,true);
+  endReact(pid);
+}
+
+function playerGang(){
+  const react=G.waitingForReact&&!G.reactDone.includes(0)&&G.reactors.includes(0);
+  if(react&&canMGang(0,G.lastDiscard)){doMGang(0);return;}
+  if(G.currentPlayer===0&&G.phase==='discard'&&G.hasDrawn){const ag=canAGang(0);if(ag)doAGang(0,ag);}
+}
+function doMGang(pid){
+  const card=G.lastDiscard;
+  const taken=[];
+  for(let i=G.hands[pid].length-1;i>=0&&taken.length<3;i--)if(same(G.hands[pid][i],card)){taken.push(G.hands[pid].splice(i,1)[0]);}
+  rmDisc(G.lastDiscardBy,card);
+  const mc=[card,...taken];
+  G.melds[pid].push({type:'ming-gang',cards:mc,hidden:false,isGeneral:card.type==='general'});
+  log(`${pn(pid)} 明槓 ${CZH[card.color]}${card.top}！(6台)`,true);
+  G.waitingForReact=false;G.lastDiscard=null;
+  drawGang(pid);
+}
+function doAGang(pid,card){
+  const taken=[];
+  for(let i=G.hands[pid].length-1;i>=0&&taken.length<4;i--)if(same(G.hands[pid][i],card)){taken.push(G.hands[pid].splice(i,1)[0]);}
+  G.melds[pid].push({type:'an-gang',cards:taken,hidden:true,isGeneral:card.type==='general'});
+  log(`${pn(pid)} 暗槓！(8台)`,true);drawGang(pid);
+}
+function drawGang(pid){
+  if(G.deck.length>0){const d=G.deck.pop();G.hands[pid].push(d);sortHand(G.hands[pid]);log(`${pn(pid)} 補牌`);}
+  G.currentPlayer=pid;G.phase='discard';G.hasDrawn=true;
+  if(pid!==0){render();setTimeout(()=>cpuDiscard(pid),700);}else{render();updateButtons();}
+}
+
+function playerHu(){
+  const react=G.waitingForReact&&!G.reactDone.includes(0)&&G.reactors.includes(0);
+  if(react&&canHuR(0,G.lastDiscard)){declHu(0,G.lastDiscardBy,G.lastDiscard,false);return;}
+  if(G.currentPlayer===0&&G.phase==='discard'&&G.hasDrawn&&canHuS(0))declHu(0,-1,null,true);
+}
+function declHu(winner,loser,card,self){
+  G.waitingForReact=false;G.gameOver=true;
+  const th=self?G.hands[winner]:[...G.hands[winner],card];
+  const tai=calcTai(th,G.melds[winner]);
+  log(`🀄 ${pn(winner)} ${self?'自摸':'胡牌'}！${tai}台`,true);
+  if(winner===0||loser===0)G.scores[0]+=(winner===0?tai:-tai);
+  render();
+  showModal(`🀄 ${pn(winner)} ${self?'自摸':'胡牌'}！`,
+    `<p><strong>${tai} 台</strong></p>${!self&&loser>=0?`<p>放銃：${pn(loser)}</p>`:''}<hr style="border-color:rgba(212,160,23,.3);margin:8px 0;"><p>累積分數：<strong>${G.scores[0]}</strong></p>`,
+    [{text:'繼續新局',action:'newGame()'}]);
+}
+
+function playerPass(){
+  if(!G.waitingForReact||G.reactDone.includes(0))return;
+  G.reactDone.push(0);log('你選擇過');chkReact();
+}
+
+// ── Reaction ──
+function startReact(by,card){
+  const rs=[];
+  for(let i=0;i<4;i++){if(i===by)continue;if(canHuR(i,card)||canMGang(i,card)||canPeng(i,card)||canChi(i,card))rs.push(i);}
+  if(!rs.length){nextTurn(by);return;}
+  G.waitingForReact=true;G.reactors=rs;G.reactDone=[];
+  render();updateButtons();
+  const cpuR=rs.filter(i=>i!==0);
+  if(cpuR.length)setTimeout(()=>cpuReactAll(cpuR,0),500);
+  if(!rs.includes(0)){G.reactDone.push(0);chkReact();}
+}
+
+function cpuReactAll(list,idx){
+  if(idx>=list.length){continueReact();return;}
+  const pid=list[idx];const card=G.lastDiscard;
+  if(G.gameOver||!G.waitingForReact)return;
+  if(canHuR(pid,card)){declHu(pid,G.lastDiscardBy,card,false);return;}
+  if(canMGang(pid,card)){doMGang(pid);return;}
+  if(canPeng(pid,card)){doPeng(pid);return;}
+  G.reactDone.push(pid);
+  setTimeout(()=>cpuReactAll(list,idx+1),350);
+}
+
+function continueReact(){
+  if(!G.reactDone.includes(0)&&G.reactors.includes(0)){render();updateButtons();return;}
+  chkReact();
+}
+function chkReact(){
+  if(G.reactors.every(i=>G.reactDone.includes(i))){
+    G.waitingForReact=false;render();updateButtons();
+    setTimeout(()=>nextTurn(G.lastDiscardBy),150);
+  }
+}
+
+function endReact(pid){
+  G.waitingForReact=false;G.lastDiscard=null;
+  G.currentPlayer=pid;G.phase='discard';G.hasDrawn=true;
+  if(pid!==0){render();setTimeout(()=>cpuDiscard(pid),700);}else{render();updateButtons();}
+}
+
+// ── Turn flow ──
+function nextTurn(prev){
+  const next=(prev+3)%4;
+  G.currentPlayer=next;G.phase='draw';G.hasDrawn=false;G.drawnCard=null;
+  if(G.deck.length<=6){
+    log('牌堆不足，流局！',true);
+    showModal('流局','牌堆不足6張，此局流局。',[{text:'重新開始',action:'newGame()'}]);return;
+  }
+  render();
+  if(next===0){log('輪到你摸牌');updateButtons();}
+  else setTimeout(()=>cpuTurn(next),550);
+}
+
+function cpuTurn(pid){
+  if(G.gameOver||G.deck.length===0)return;
+  const c=G.deck.pop();G.hands[pid].push(c);G.hasDrawn=true;log(`${pn(pid)} 摸牌`);
+  const ag=canAGang(pid);if(ag){render();setTimeout(()=>doAGang(pid,ag),450);return;}
+  if(canHuS(pid)){render();setTimeout(()=>declHu(pid,-1,null,true),450);return;}
+  render();setTimeout(()=>cpuDiscard(pid),650);
+}
+
+function cpuDiscard(pid){
+  if(G.gameOver||!G.hands[pid].length)return;
+  const hand=G.hands[pid];
+  let best=0,bs=Infinity;
+  for(let i=0;i<hand.length;i++){
+    const c=hand[i];
+    let s=0;
+    s+=hand.filter((x,j)=>j!==i&&same(x,c)).length*4;
+    const CMB=['chariot','horse','cannon'],GEN=['general','advisor','elephant'];
+    s+=hand.filter((x,j)=>j!==i&&x.color===c.color&&
+      ((CMB.includes(c.type)&&CMB.includes(x.type))||(GEN.includes(c.type)&&GEN.includes(x.type)))).length*2;
+    if(s<bs){bs=s;best=i;}
+  }
+  doDiscard(pid,hand[best]);
+}
+
+function rmDisc(pid,card){const i=G.discards[pid].findIndex(c=>c.id===card.id);if(i!==-1)G.discards[pid].splice(i,1);}
+function pn(i){return i===0?'你':`電腦${i}`;}
+
+// ── Log ──
+let logOpen=false;
+function log(msg,imp=false){
+  const ll=document.getElementById('log-latest');ll.textContent=msg;ll.className=imp?'imp':'';
+  const dr=document.getElementById('log-drawer');
+  const e=document.createElement('div');e.className=`log-entry${imp?' imp':''}`;e.textContent=msg;
+  dr.prepend(e);if(dr.children.length>60)dr.removeChild(dr.lastChild);
+}
+function toggleLog(){logOpen=!logOpen;document.getElementById('log-drawer').className=logOpen?'open':'';}
+
+// ── Modal ──
+function showModal(title,body,btns){
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-body').innerHTML=body;
+  const bEl=document.getElementById('modal-btns');bEl.innerHTML='';
+  btns.forEach(b=>{const btn=document.createElement('button');btn.className='btn primary';btn.textContent=b.text;btn.onclick=()=>{hideModal();eval(b.action);};bEl.appendChild(btn);});
+  document.getElementById('modal-overlay').className='open';
+}
+function hideModal(){document.getElementById('modal-overlay').className='';}
+
+newGame();
+</script>
+</body>
+</html>
