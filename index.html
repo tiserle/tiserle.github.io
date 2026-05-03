@@ -470,6 +470,76 @@ body {
 const CZH={yellow:'黃',red:'紅',green:'綠',white:'白'};
 
 // 黃/紅 → 紅方棋子；綠/白 → 黑方棋子
+// ══════════════════════════════════════════
+//  音效系統（Web Audio API 合成）
+// ══════════════════════════════════════════
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let _actx = null;
+function getACtx(){
+  if(!_actx) _actx = new AudioCtx();
+  // 某些瀏覽器需要使用者互動後才能播放
+  if(_actx.state === 'suspended') _actx.resume();
+  return _actx;
+}
+
+// 通用播放函式
+function playTone(cfg){
+  try{
+    const ctx = getACtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = cfg.type || 'sine';
+    osc.frequency.setValueAtTime(cfg.freq || 440, ctx.currentTime);
+    if(cfg.freqEnd) osc.frequency.exponentialRampToValueAtTime(cfg.freqEnd, ctx.currentTime + cfg.dur);
+    gain.gain.setValueAtTime(cfg.vol || 0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + cfg.dur);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + cfg.dur);
+  }catch(e){}
+}
+
+// 🃏 打牌音效：短促的「咻」（高頻往下掃）
+function sfxDiscard(){
+  playTone({type:'sine', freq:800, freqEnd:200, vol:0.15, dur:0.12});
+  setTimeout(()=>playTone({type:'triangle', freq:300, freqEnd:150, vol:0.08, dur:0.08}), 60);
+}
+
+// 🀄 碰牌音效：清脆的「啪」
+function sfxPeng(){
+  playTone({type:'square', freq:600, freqEnd:300, vol:0.12, dur:0.08});
+  playTone({type:'sine',   freq:400, freqEnd:200, vol:0.10, dur:0.10});
+}
+
+// 🀄 槓牌音效：厚重的「碰碰」
+function sfxGang(){
+  playTone({type:'sawtooth', freq:300, freqEnd:150, vol:0.15, dur:0.12});
+  setTimeout(()=>playTone({type:'sawtooth', freq:250, freqEnd:120, vol:0.15, dur:0.12}), 100);
+}
+
+// 🎉 胡牌音效：「登登登」三聲（上升音階）
+function sfxHu(){
+  const notes = [523, 659, 784]; // C5, E5, G5
+  notes.forEach((freq, i) => {
+    setTimeout(()=>{
+      playTone({type:'sine', freq, freqEnd:freq*0.95, vol:0.25, dur:0.25});
+      playTone({type:'triangle', freq:freq*2, vol:0.08, dur:0.2});
+    }, i * 180);
+  });
+}
+
+// 🃏 摸牌音效：輕柔的「唰」
+function sfxDraw(){
+  playTone({type:'sine', freq:200, freqEnd:400, vol:0.06, dur:0.08});
+}
+
+// 🃏 吃牌音效：兩聲短促
+function sfxChi(){
+  playTone({type:'sine', freq:500, freqEnd:400, vol:0.10, dur:0.07});
+  setTimeout(()=>playTone({type:'sine', freq:600, freqEnd:500, vol:0.10, dur:0.07}), 80);
+}
+
 const COLOR_PIECES = {
   yellow: [{top:'帥',type:'general'},{top:'仕',type:'advisor'},{top:'相',type:'elephant'},
            {top:'俥',type:'chariot'},{top:'傌',type:'horse'},{top:'炮',type:'cannon'},{top:'兵',type:'soldier'}],
@@ -981,7 +1051,7 @@ function selectCard(card){
 function playerDraw(){
   if(G.currentPlayer!==0||G.hasDrawn||G.deck.length===0)return;
   const c=G.deck.pop();G.hands[0].push(c);G.hasDrawn=true;G.phase='discard';
-  sortHand(G.hands[0]);log(`你摸了一張牌`);
+  sortHand(G.hands[0]);sfxDraw();log(`你摸了一張牌`);
   // B2: 有暗槓必須強制開
   const ag=canAGang(0);
   if(ag){
@@ -1011,6 +1081,7 @@ function doDiscard(pid,card){
   const i=G.hands[pid].findIndex(c=>c.id===card.id);if(i===-1)return;
   G.hands[pid].splice(i,1);G.discards[pid].push(card);
   G.lastDiscard=card;G.lastDiscardBy=pid;G.hasDrawn=false;
+  if(pid===0) sfxDiscard(); else sfxDiscard();
   log(`${pn(pid)} 打出 ${CZH[card.color]}${card.top}`);
   render();startReact(pid,card);
 }
@@ -1041,7 +1112,7 @@ function doChi(pid,opt){
   G.melds[pid].push({type:opt.type,cards:mc,hidden:false});
   // B1: 記錄吃進來的牌，不能再打出
   if(pid===0) G.chiCardIds.add(opt.card.id);
-  log(`${pn(pid)} 吃了 ${mname({type:opt.type})}！`,true);
+  sfxChi();log(`${pn(pid)} 吃了 ${mname({type:opt.type})}！`,true);
   endReact(pid);
 }
 
@@ -1056,7 +1127,7 @@ function doPeng(pid){
   rmDisc(G.lastDiscardBy,card);
   const mc=[card,...taken]; // 3張，全部是正確的牌物件
   G.melds[pid].push({type:'ming-ke',cards:mc,hidden:false,isGeneral:card.type==='general'});
-  log(`${pn(pid)} 碰了 ${CZH[card.color]}${card.top}！`,true);
+  sfxPeng();log(`${pn(pid)} 碰了 ${CZH[card.color]}${card.top}！`,true);
   endReact(pid);
 }
 
@@ -1076,7 +1147,7 @@ function doMGang(pid){
   rmDisc(G.lastDiscardBy,card);
   const mc=[card,...taken];
   G.melds[pid].push({type:'ming-gang',cards:mc,hidden:false,isGeneral:card.type==='general'});
-  log(`${pn(pid)} 明槓 ${CZH[card.color]}${card.top}！(6台)`,true);
+  sfxGang();log(`${pn(pid)} 明槓 ${CZH[card.color]}${card.top}！(6台)`,true);
   G.waitingForReact=false;G.lastDiscard=null;
   drawGang(pid);
 }
@@ -1084,7 +1155,7 @@ function doAGang(pid,card){
   const taken=[];
   for(let i=G.hands[pid].length-1;i>=0&&taken.length<4;i--)if(same(G.hands[pid][i],card)){taken.push(G.hands[pid].splice(i,1)[0]);}
   G.melds[pid].push({type:'an-gang',cards:taken,hidden:true,isGeneral:card.type==='general'});
-  log(`${pn(pid)} 暗槓！(8台)`,true);drawGang(pid);
+  sfxGang();log(`${pn(pid)} 暗槓！(8台)`,true);drawGang(pid);
 }
 function drawGang(pid){
   if(G.deck.length>0){const d=G.deck.pop();G.hands[pid].push(d);sortHand(G.hands[pid]);log(`${pn(pid)} 補牌`);}
@@ -1101,7 +1172,7 @@ function declHu(winner,loser,card,self){
   G.waitingForReact=false;G.gameOver=true;
   const th=self?G.hands[winner]:[...G.hands[winner],card];
   const tai=calcTai(th,G.melds[winner]);
-  log(`🀄 ${pn(winner)} ${self?'自摸':'胡牌'}！${tai}台`,true);
+  sfxHu();log(`🀄 ${pn(winner)} ${self?'自摸':'胡牌'}！${tai}台`,true);
   if(winner===0||loser===0)G.scores[0]+=(winner===0?tai:-tai);
   render();
   showModal(`🀄 ${pn(winner)} ${self?'自摸':'胡牌'}！`,
