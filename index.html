@@ -573,7 +573,7 @@ function newGame(){
     scores:[0,0,0,0],currentPlayer:0,zhuang:0,
     phase:'discard',hasDrawn:true,lastDiscard:null,lastDiscardBy:-1,
     selectedCard:null,waitingForReact:false,reactors:[],reactDone:[],gameOver:false,round:1,
-    chiCardIds:new Set(),mustGang:null};
+    chiCardIds:new Set(),mustGang:null,_pendingCpuR:null};
   // B2: 起手檢查暗槓
   const ag0=canAGang(0);
   if(ag0){
@@ -1182,19 +1182,56 @@ function declHu(winner,loser,card,self){
 
 function playerPass(){
   if(!G.waitingForReact||G.reactDone.includes(0))return;
-  G.reactDone.push(0);log('你選擇過');chkReact();
+  G.reactDone.push(0);log('你選擇過');
+  // 如果有待處理的CPU反應（玩家優先胡牌情境），現在繼續
+  if(G._pendingCpuR){playerHuOrPass_afterDecide();}
+  else{chkReact();}
 }
 
 // ── Reaction ──
 function startReact(by,card){
+  // 胡牌優先：先檢查所有人能否胡
+  // 玩家0能胡→立即讓玩家決定（CPU胡也立即宣告）
+  const huPlayers=[];
+  for(let i=0;i<4;i++){if(i===by)continue;if(canHuR(i,card))huPlayers.push(i);}
+
+  // CPU 能胡→直接宣告（最高優先）
+  for(const pid of huPlayers){
+    if(pid!==0){declHu(pid,by,card,false);return;}
+  }
+
+  // 收集所有可反應的玩家（胡/槓/碰/吃）
   const rs=[];
-  for(let i=0;i<4;i++){if(i===by)continue;if(canHuR(i,card)||canMGang(i,card)||canPeng(i,card)||canChi(i,card))rs.push(i);}
+  for(let i=0;i<4;i++){
+    if(i===by)continue;
+    if(canHuR(i,card)||canMGang(i,card)||canPeng(i,card)||canChi(i,card))rs.push(i);
+  }
   if(!rs.length){nextTurn(by);return;}
+
   G.waitingForReact=true;G.reactors=rs;G.reactDone=[];
   render();updateButtons();
+
+  // 玩家0能胡→讓玩家先決定，CPU等待
+  if(huPlayers.includes(0)){
+    // 只讓玩家決定，CPU暫不行動
+    const cpuR=rs.filter(i=>i!==0);
+    // CPU先標記為「等待」，等玩家決定後再繼續
+    G._pendingCpuR=cpuR;
+    return;
+  }
+
+  // 玩家0不能胡→CPU可以正常碰/槓/吃
   const cpuR=rs.filter(i=>i!==0);
   if(cpuR.length)setTimeout(()=>cpuReactAll(cpuR,0),500);
   if(!rs.includes(0)){G.reactDone.push(0);chkReact();}
+}
+
+function playerHuOrPass_afterDecide(){
+  // 玩家決定後，讓CPU繼續反應
+  const cpuR=G._pendingCpuR||[];
+  G._pendingCpuR=null;
+  if(cpuR.length)setTimeout(()=>cpuReactAll(cpuR,0),400);
+  else chkReact();
 }
 
 function cpuReactAll(list,idx){
