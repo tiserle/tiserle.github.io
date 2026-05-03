@@ -63,8 +63,8 @@ body {
 #main {
   flex: 1;
   display: grid;
-  grid-template-rows: 82px 1fr 190px;
-  grid-template-columns: 110px 1fr 160px;
+  grid-template-rows: 82px 1fr 185px;
+  grid-template-columns: 110px 1fr 155px;
   gap: 5px;
   padding: 5px;
   min-height: 0;
@@ -224,6 +224,15 @@ body {
 .card.xs .c-top { font-size: 8px; }
 .card.xs .c-dot { display: none; }
 
+/* 超小牌：右側明牌區用 */
+.card.xxs {
+  width: 20px; height: 30px; border-width: 1px; border-radius: 2px;
+  box-shadow: none; cursor: default; flex-shrink: 0;
+}
+.card.xxs:hover { transform: none; }
+.card.xxs .c-top { font-size: 9px; font-weight: 900; }
+.card.xxs .c-dot { display: none; }
+
 /* ── BUTTONS ── */
 .btn {
   padding: 5px 12px;
@@ -271,15 +280,15 @@ body {
 /* ── TAI BREAKDOWN ── */
 #tai-breakdown {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
   align-items: flex-start;
-  padding: 4px 6px;
+  padding: 3px 5px;
   background: rgba(0,0,0,0.25);
   border-radius: 5px;
   border: 1px solid rgba(212,160,23,0.2);
-  font-size: 10px;
-  max-height: 64px;
+  font-size: 9px;
+  max-height: 52px;
   overflow-y: auto;
 }
 #tai-breakdown .tai-section {
@@ -302,9 +311,10 @@ body {
   background: rgba(212,160,23,0.12);
   border: 1px solid rgba(212,160,23,0.3);
   border-radius: 3px;
-  padding: 1px 5px;
+  padding: 1px 4px;
   white-space: nowrap;
   color: var(--text);
+  font-size: 9px;
 }
 #tai-breakdown .tai-item.highlight {
   background: rgba(212,160,23,0.28);
@@ -411,9 +421,9 @@ body {
     </div>
     <div id="player-shown-melds" style="
       flex:1;background:rgba(10,30,15,0.7);border:1px solid rgba(212,160,23,0.4);
-      border-radius:7px;padding:6px;overflow-y:auto;
+      border-radius:7px;padding:4px 5px;overflow-y:auto;min-height:0;
     ">
-      <div style="font-size:9px;color:rgba(212,160,23,0.55);margin-bottom:4px;">你的明牌</div>
+      <div style="font-size:8px;color:rgba(212,160,23,0.5);margin-bottom:3px;letter-spacing:1px;">你的明牌</div>
       <div id="player-melds-display"></div>
     </div>
   </div>
@@ -493,8 +503,15 @@ function newGame(){
     scores:[0,0,0,0],currentPlayer:0,zhuang:0,
     phase:'discard',hasDrawn:true,lastDiscard:null,lastDiscardBy:-1,
     selectedCard:null,waitingForReact:false,reactors:[],reactDone:[],gameOver:false,round:1,
-    chiCardIds:new Set(),mustGang:null}; // B1: 記錄吃進來的牌id，不能打出
-  log('新遊戲開始！你是莊家，請先打出一張牌。',true);
+    chiCardIds:new Set(),mustGang:null};
+  // B2: 起手檢查暗槓
+  const ag0=canAGang(0);
+  if(ag0){
+    G.mustGang=ag0;
+    log(`新遊戲開始！你是莊家，有暗槓（${CZH[ag0.color]}${ag0.top}），請先開槓！`,true);
+  } else {
+    log('新遊戲開始！你是莊家，請先打出一張牌。',true);
+  }
   render();updateButtons();
 }
 
@@ -512,7 +529,8 @@ function sortHand(h){
 // ── Card elements ──
 function mkCard(card,size,{click=false,sel=false}={}){
   const el=document.createElement('div');
-  el.className=`card ${card.color}${size==='sm'?' sm':size==='xs'?' xs':''}${sel?' selected':''}`;
+  const szClass=size==='sm'?' sm':size==='xs'?' xs':size==='xxs'?' xxs':'';
+  el.className=`card ${card.color}${szClass}${sel?' selected':''}`;
   const t=document.createElement('div');t.className='c-top';t.textContent=card.top;el.appendChild(t);
   const d=document.createElement('div');d.className='c-dot';el.appendChild(d);
   if(click)el.addEventListener('click',()=>selectCard(card));
@@ -547,14 +565,14 @@ function renderPlayer(){
     mel.innerHTML='';
     G.melds[0].forEach(m=>{
       const grp=document.createElement('div');
-      grp.style.cssText='margin-bottom:6px;';
+      grp.style.cssText='margin-bottom:4px;';
       const lbl=document.createElement('span');
-      lbl.className='meld-type-label';
+      lbl.style.cssText='font-size:8px;color:rgba(212,160,23,0.7);display:block;margin-bottom:2px;';
       lbl.textContent=mname(m)+' '+mTai(m)+'台';
       grp.appendChild(lbl);
       const row=document.createElement('div');
-      row.className='meld-cards-row';
-      m.cards.forEach(c=>row.appendChild(mkCard(c,'sm')));
+      row.style.cssText='display:flex;gap:1px;flex-wrap:wrap;';
+      m.cards.forEach(c=>row.appendChild(mkCard(c,'xxs')));
       grp.appendChild(row);mel.appendChild(grp);
     });
   }
@@ -564,58 +582,87 @@ function renderPlayer(){
 
 function renderTaiBreakdown(){
   const el=document.getElementById('tai-breakdown');
+  if(!el)return;
   el.innerHTML='';
   const hand=G.hands[0], melds=G.melds[0];
 
   // 桌面台數
   const meldTaiSum=meldsTai(0);
 
-  // 手牌分析：用 evaluateHand 取得正確的 canWin 判定
-  const soldiers=hand.filter(c=>c.type==='soldier');
-  const generals=hand.filter(c=>c.type==='general');
-  const others=hand.filter(c=>c.type!=='soldier'&&c.type!=='general');
-  const solResult=calcSoldierTai(soldiers);
-  const genTai=calcGeneralTai(generals);
-  const grpResult=bestGroupTai(hand.filter(c=>c.type!=='soldier')); // generals進去
-  const canWin=solResult.canWin&&grpResult.canWin;
-  const handTai=canWin ? solResult.tai+grpResult.tai : 0;
-  const total=meldTaiSum+(canWin?handTai:0);
+  // 手牌：用新版 evaluateHand
+  const {canWin, tai:handTai} = evaluateHand(hand, false);
+  const total = meldTaiSum + (canWin ? handTai : 0);
 
-  // 桌面區塊
+  // ── 桌面區塊 ──
   if(melds.length>0){
     const sec=makeTaiSection('桌面');
     melds.forEach(m=>{
       const t=mTai(m);
       addTaiItem(sec, mname(m)+' '+t+'台', t>0);
     });
-    addTaiTotal(sec, meldTaiSum+'台', false);
+    addTaiTotal(sec, meldTaiSum+'台');
     el.appendChild(sec);
   }
 
-  // 手牌區塊
+  // ── 手牌區塊（逐類分析） ──
   const handSec=makeTaiSection('手牌（最佳）');
-  if(generals.length>0){
-    const t=calcGeneralDetailTai(generals);
-    t.forEach(({label,tai})=>addTaiItem(handSec,label+' '+tai+'台',tai>0));
-  }
+
+  // 兵/卒分析
+  const soldiers=hand.filter(c=>c.type==='soldier');
   if(soldiers.length>0){
-    const sLabel=soldierLabel(soldiers);
-    if(solResult.canWin){
-      const desc=solResult.tai>0 ? sLabel+' '+solResult.tai+'台' : sLabel+'（對子，0台）';
-      addTaiItem(handSec, desc, solResult.tai>0);
-    } else {
-      addTaiItem(handSec, sLabel+'（單張散牌，不能胡）', false);
+    const colors=new Set(soldiers.map(c=>c.color));
+    let solDesc, solTai;
+    if(colors.size>=4){solDesc='四色兵卒';solTai=4;}
+    else if(colors.size>=3){solDesc='三色兵卒';solTai=3;}
+    else {
+      // 看是否每色成對
+      const byColor={};
+      for(const c of soldiers){if(!byColor[c.color])byColor[c.color]=0;byColor[c.color]++;}
+      const hasSingle=Object.values(byColor).some(n=>n<2);
+      solDesc=soldierLabel(soldiers);
+      solTai=0;
+      if(hasSingle){
+        addTaiItem(handSec, solDesc+'（單張，不能胡）', false);
+      } else {
+        addTaiItem(handSec, solDesc+'（對子，0台）', false);
+      }
+      soldiers.length=0; // 已處理，跳過下面
+    }
+    if(soldiers.length>0) addTaiItem(handSec, solDesc+' '+solTai+'台', solTai>0);
+  }
+
+  // 將/帥分析
+  const generals=hand.filter(c=>c.type==='general');
+  if(generals.length>0){
+    const groups={};
+    for(const c of generals){const k=c.color+c.top;if(!groups[k])groups[k]=[];groups[k].push(c);}
+    for(const [k,cs] of Object.entries(groups)){
+      const t=cs.length>=4?10:cs.length===3?6:cs.length===2?2:1;
+      const colorName={yellow:'黃',red:'紅',green:'綠',white:'白'}[cs[0].color];
+      addTaiItem(handSec, colorName+cs[0].top+'×'+cs.length+' '+t+'台', t>0);
     }
   }
-  if(!grpResult.canWin && others.length>0){
-    addTaiItem(handSec,'其他牌未完整成組', false);
-  } else if(grpResult.canWin && grpResult.tai>0){
-    addTaiItem(handSec,'牌組 '+grpResult.tai+'台', true);
-  }
-  if(canWin) addTaiTotal(handSec, handTai+'台', false);
+
+  // 其他牌組台數（從 evaluateHand 總台數推算）
+  const solTaiTotal = (()=>{
+    const s=hand.filter(c=>c.type==='soldier');
+    const col=new Set(s.map(c=>c.color));
+    return col.size>=4?4:col.size>=3?3:0;
+  })();
+  const genTaiTotal = (()=>{
+    const g=hand.filter(c=>c.type==='general');
+    const grp={};
+    for(const c of g){const k=c.color+c.top;if(!grp[k])grp[k]=0;grp[k]++;}
+    return Object.values(grp).reduce((s,n)=>s+(n>=4?10:n===3?6:n===2?2:1),0);
+  })();
+  const otherTai = canWin ? Math.max(0, handTai - solTaiTotal - genTaiTotal) : 0;
+  if(otherTai>0) addTaiItem(handSec, '牌組 '+otherTai+'台', true);
+  if(!canWin) addTaiItem(handSec, '手牌無法完整成組', false);
+
+  if(canWin) addTaiTotal(handSec, handTai+'台');
   el.appendChild(handSec);
 
-  // 總計
+  // ── 總計 ──
   const totalDiv=document.createElement('div');
   totalDiv.className=`tai-total${(canWin&&total>=10)?' can-win':''}`;
   totalDiv.textContent='總計 '+total+'台'+(canWin&&total>=10?' ✓':'');
@@ -702,7 +749,9 @@ function renderDots(){
 
 function renderBanner(){
   const b=document.getElementById('pending-banner');
-  if(G.waitingForReact&&!G.reactDone.includes(0)&&G.reactors.includes(0))b.textContent='⚡ 可吃/碰/槓/胡！';
+  if(G.mustGang&&G.currentPlayer===0)
+    b.textContent=`⚠️ 必須先開槓（${CZH[G.mustGang.color]}${G.mustGang.top}），請按「槓」！`;
+  else if(G.waitingForReact&&!G.reactDone.includes(0)&&G.reactors.includes(0))b.textContent='⚡ 可吃/碰/槓/胡！';
   else if(G.waitingForReact)b.textContent='等待其他玩家…';
   else if(G.currentPlayer===0&&!G.hasDrawn)b.textContent='請摸牌';
   else if(G.currentPlayer===0&&G.phase==='discard')b.textContent='請選牌打出';
@@ -713,8 +762,10 @@ function renderBanner(){
 function meldsTai(pid){return G.melds[pid].reduce((s,m)=>s+mTai(m),0);}
 
 // ══════════════════════════════════════════
-//  台數計算（完整版）
-//  手牌必須能完整分組才能胡牌
+//  台數計算（完整版 v3）
+//  修正：
+//  1. 兵/卒也要完整分組（不能有散牌）
+//  2. 暗刻（3張同色同字）不能被車馬包/將士象拆開
 // ══════════════════════════════════════════
 
 // mTai: 桌面（明牌）台數
@@ -725,14 +776,13 @@ function mTai(m){
     case 'tri-soldier':     return 3;
     case 'quad-soldier':    return 4;
     case 'pair':            return 0;
-    case 'ming-ke':         return m.isGeneral ? 4 : 1;  // 將/帥碰=4台, 其他碰=1台
-    case 'ming-gang':       return m.isGeneral ? 8 : 6;  // 將/帥明槓=8台, 其他=6台
-    case 'an-gang':         return m.isGeneral ? 10 : 8; // 將/帥暗槓=10台, 其他=8台
+    case 'ming-ke':         return m.isGeneral ? 4 : 1;
+    case 'ming-gang':       return m.isGeneral ? 8 : 6;
+    case 'an-gang':         return m.isGeneral ? 10 : 8;
     default: return 0;
   }
 }
 
-// 取得牌組名稱
 function mname(m){
   return{
     'che-ma-bao':'車馬包','jiang-shi-xiang':'將士象',
@@ -741,163 +791,91 @@ function mname(m){
   }[m.type]||m.type;
 }
 
-// 計算總台數（手牌+桌面）
-// 回傳 {canWin, tai}
-function calcTai(hand, melds) {
+// 計算總台數，同時驗證手牌是否可胡
+function calcTai(hand, melds, winMode=false) {
   const meldTaiSum = melds.reduce((s,m)=>s+mTai(m), 0);
-  const {canWin, tai} = evaluateHand(hand);
+  const {canWin, tai} = evaluateHand(hand, winMode);
   if (!canWin) return 0;
   return meldTaiSum + tai;
 }
 
-function evaluateHand(hand) {
-  if (hand.length === 0) return {canWin: true, tai: 0};
-
-  // 兵/卒規則：
-  // - 三色或四色：合法，計台數（3台或4台）
-  // - 同色兩張（對子）：合法，0台
-  // - 單張：不合法，不能胡
-  const soldiers = hand.filter(c=>c.type==='soldier');
-  const soldierResult = calcSoldierTai(soldiers);
-  if (!soldierResult.canWin) return {canWin: false, tai: 0};
-
-  // 其他牌（含將/帥）必須完整分組
-  const groupables = hand.filter(c=>c.type!=='soldier');
-  const result = bestGroupTai(groupables);
-  if (!result.canWin) return {canWin: false, tai: 0};
-
-  return {canWin: true, tai: soldierResult.tai + result.tai};
+// 驗證手牌並計算台數
+function evaluateHand(hand, winMode=false) {
+  if (!hand.length) return {canWin:true, tai:0};
+  const result = bestGroupTai(hand, winMode);
+  return result.canWin ? {canWin:true, tai:result.tai} : {canWin:false, tai:0};
 }
 
-// 兵卒合法性與台數：
-// 無兵卒 → canWin:true, 0台
-// 四色（含） → canWin:true, 4台
-// 三色（含） → canWin:true, 3台
-// 同色2張（對子）→ canWin:true, 0台（合法但不計台）
-// 單張（散牌）→ canWin:false（不能胡）
-function calcSoldierTai(soldiers) {
-  if (!soldiers.length) return {canWin: true, tai: 0};
+// winMode=false: 暗刻（3張同色同字）強制整組，不能拆
+// winMode=true:  胡牌時例外，暗刻可以拆開組合（例如車馬包包包胡牌）
+function bestGroupTai(cards, winMode=false) {
+  if (!cards.length) return {canWin:true, tai:0};
+  let best = {canWin:false, tai:0};
+  const first=cards[0], rest=cards.slice(1);
+  const sc=rest.filter(c=>same(c,first));
 
-  // 按顏色分組
-  const byColor = {};
-  for (const c of soldiers) {
-    if (!byColor[c.color]) byColor[c.color] = [];
-    byColor[c.color].push(c);
+  function try_(tai, remain) {
+    const sub = bestGroupTai(remain, winMode);
+    if (sub.canWin && (!best.canWin || tai+sub.tai > best.tai))
+      best = {canWin:true, tai:tai+sub.tai};
   }
 
-  // 先確認每個顏色至少兩張（對子），或整體達到三/四色
-  const colorSet = new Set(soldiers.map(c=>c.color));
-
-  // 三色或四色：不管每色幾張，都合法且計台
-  if (colorSet.size >= 4) return {canWin: true, tai: 4};
-  if (colorSet.size >= 3) return {canWin: true, tai: 3};
-
-  // 1-2色：每色必須至少兩張（成對），否則有散牌不能胡
-  for (const cards of Object.values(byColor)) {
-    if (cards.length < 2) return {canWin: false, tai: 0}; // 單張散牌
-  }
-  // 每色都成對，合法但0台
-  return {canWin: true, tai: 0};
-}
-
-// 將/帥台數（手牌中）
-// 同色1張=1台, 2張=2台, 3張=6台, 4張=10台
-function calcGeneralTai(generals) {
-  if (!generals.length) return 0;
-  const groups = {};
-  for (const c of generals) {
-    const k=`${c.color}-${c.top}`;
-    if (!groups[k]) groups[k]=[];
-    groups[k].push(c);
-  }
-  let tai = 0;
-  for (const cards of Object.values(groups)) {
-    if      (cards.length >= 4) tai += 10;
-    else if (cards.length === 3) tai += 6;
-    else if (cards.length === 2) tai += 2;
-    else                         tai += 1; // 單張
-  }
-  return tai;
-}
-
-// 所有非兵卒的牌完整分組，遞迴找最高台數
-// 將/帥：可以單張、對子、或組成將士象
-// 其他牌：必須兩兩成對或三張成組，不允許散牌
-// 回傳 {canWin, tai}
-function bestGroupTai(cards) {
-  if (!cards.length) return {canWin: true, tai: 0};
-  let best = {canWin: false, tai: 0};
-  const first = cards[0], rest = cards.slice(1);
-  const sameCards = rest.filter(c=>same(c,first));
-
-  function tryMeld(tai, remain) {
-    const sub = bestGroupTai(remain);
-    if (sub.canWin) {
-      const total = tai + sub.tai;
-      if (!best.canWin || total > best.tai) best = {canWin: true, tai: total};
-    }
+  // ── 兵/卒 ──
+  if (first.type === 'soldier') {
+    const otherSol=rest.filter(c=>c.type==='soldier'&&c.color!==first.color);
+    const u4=new Set([first.color]),p4=[];
+    for(const c of otherSol){if(!u4.has(c.color)){p4.push(c);u4.add(c.color);}if(p4.length===3)break;}
+    if(p4.length===3) try_(4, rest.filter(c=>!p4.includes(c)));
+    const u3=new Set([first.color]),p3=[];
+    for(const c of otherSol){if(!u3.has(c.color)){p3.push(c);u3.add(c.color);}if(p3.length===2)break;}
+    if(p3.length===2) try_(3, rest.filter(c=>!p3.includes(c)));
+    const sp=sc.length>=1?sc[0]:null;
+    if(sp) try_(0, rest.filter(c=>c!==sp));
+    return best; // 不允許兵卒散牌
   }
 
-  // ── 將/帥：特殊規則，可單張/對子/暗刻/暗槓，無需湊牌組 ──
+  // ── 將/帥 ──
   if (first.type === 'general') {
-    // 暗槓（同色4張）= 10台
-    if (sameCards.length >= 3) {
-      tryMeld(10, rest.filter(c=>!sameCards.slice(0,3).includes(c)));
+    if(sc.length>=3) try_(10, rest.filter(c=>!sc.slice(0,3).includes(c)));
+    if(sc.length>=2) try_(6, rest.filter(c=>!sc.slice(0,2).includes(c)));
+    // 將士象：平時只在1張時考慮；winMode 放寬
+    if(sc.length<2 || winMode) {
+      const c1=rest.find(c=>c.color===first.color&&c.type==='advisor');
+      const c2=rest.find(c=>c.color===first.color&&c.type==='elephant');
+      if(c1&&c2) try_(2, rest.filter(c=>c!==c1&&c!==c2));
     }
-    // 暗刻（同色3張）= 6台
-    if (sameCards.length >= 2) {
-      tryMeld(6, rest.filter(c=>!sameCards.slice(0,2).includes(c)));
-    }
-    // 對子（同色2張）= 2台
-    if (sameCards.length >= 1) {
-      tryMeld(2, rest.filter(c=>c!==sameCards[0]));
-    }
-    // 單張 = 1台（將/帥單支可獨立存在）
-    tryMeld(1, rest);
-    // 將士象（同色 general+advisor+elephant）= 2台
-    // 注意：將士象裡general只貢獻1台，但advisor+elephant另計，
-    // 所以整組2台已包含general的1台貢獻
-    const c1 = rest.find(c=>c.color===first.color&&c.type==='advisor');
-    const c2 = rest.find(c=>c.color===first.color&&c.type==='elephant');
-    if (c1 && c2) tryMeld(2, rest.filter(c=>c!==c1&&c!==c2));
+    if(sc.length>=1) try_(2, rest.filter(c=>c!==sc[0]));
+    try_(1, rest);
     return best;
   }
 
-  // ── 仕/士、相/象：必須成組，不能散牌 ──
+  // ── 仕/士、相/象 ──
   if (['advisor','elephant'].includes(first.type)) {
-    // 暗槓 = 8台
-    if (sameCards.length >= 3) tryMeld(8, rest.filter(c=>!sameCards.slice(0,3).includes(c)));
-    // 暗刻 = 3台
-    if (sameCards.length >= 2) tryMeld(3, rest.filter(c=>!sameCards.slice(0,2).includes(c)));
-    // 將士象（同色 general+advisor+elephant）= 2台
-    const need = ['general','advisor','elephant'].filter(t=>t!==first.type);
-    const c1 = rest.find(c=>c.color===first.color&&c.type===need[0]);
-    const c2 = rest.find(c=>c.color===first.color&&c.type===need[1]);
-    if (c1 && c2) tryMeld(2, rest.filter(c=>c!==c1&&c!==c2));
-    // 對子 = 0台
-    const pair = rest.find(c=>same(c,first));
-    if (pair) tryMeld(0, rest.filter(c=>c!==pair));
+    if(sc.length>=3) { try_(8, rest.filter(c=>!sc.slice(0,3).includes(c))); if(!winMode) return best; }
+    if(sc.length>=2) { try_(3, rest.filter(c=>!sc.slice(0,2).includes(c))); if(!winMode) return best; }
+    const need=['general','advisor','elephant'].filter(t=>t!==first.type);
+    const c1=rest.find(c=>c.color===first.color&&c.type===need[0]);
+    const c2=rest.find(c=>c.color===first.color&&c.type===need[1]);
+    if(c1&&c2) try_(2, rest.filter(c=>c!==c1&&c!==c2));
+    const pair=sc.length>=1?sc[0]:null;
+    if(pair) try_(0, rest.filter(c=>c!==pair));
     return best;
   }
 
-  // ── 俥/車、傌/馬、炮/包：必須成組 ──
+  // ── 俥/車、傌/馬、炮/包 ──
   if (['chariot','horse','cannon'].includes(first.type)) {
-    // 暗槓 = 8台
-    if (sameCards.length >= 3) tryMeld(8, rest.filter(c=>!sameCards.slice(0,3).includes(c)));
-    // 暗刻 = 3台
-    if (sameCards.length >= 2) tryMeld(3, rest.filter(c=>!sameCards.slice(0,2).includes(c)));
-    // 車馬包 = 1台
-    const need = ['chariot','horse','cannon'].filter(t=>t!==first.type);
-    const c1 = rest.find(c=>c.color===first.color&&c.type===need[0]);
-    const c2 = rest.find(c=>c.color===first.color&&c.type===need[1]);
-    if (c1 && c2) tryMeld(1, rest.filter(c=>c!==c1&&c!==c2));
-    // 對子 = 0台
-    const pair = rest.find(c=>same(c,first));
-    if (pair) tryMeld(0, rest.filter(c=>c!==pair));
+    if(sc.length>=3) { try_(8, rest.filter(c=>!sc.slice(0,3).includes(c))); if(!winMode) return best; }
+    if(sc.length>=2) { try_(3, rest.filter(c=>!sc.slice(0,2).includes(c))); if(!winMode) return best; }
+    const need=['chariot','horse','cannon'].filter(t=>t!==first.type);
+    const c1=rest.find(c=>c.color===first.color&&c.type===need[0]);
+    const c2=rest.find(c=>c.color===first.color&&c.type===need[1]);
+    if(c1&&c2) try_(1, rest.filter(c=>c!==c1&&c!==c2));
+    const pair=sc.length>=1?sc[0]:null;
+    if(pair) try_(0, rest.filter(c=>c!==pair));
     return best;
   }
 
-  return best; // 未知牌型，不能成組
+  return best;
 }
 
 // ── Checks ──
@@ -907,6 +885,10 @@ function cntIn(hand,card){return hand.filter(c=>same(c,card)).length;}
 
 function chiOpts(pid,card){
   if(!card||G.lastDiscardBy===pid)return[];
+  // 規則：只能吃上家（逆時針的前一家）的牌
+  // 順序逆時針：0→3→2→1→0，所以 pid 的上家是 (pid+1)%4
+  const upstream=(pid+1)%4;
+  if(G.lastDiscardBy!==upstream)return[];
   const hand=G.hands[pid],opts=[];
   if(['chariot','horse','cannon'].includes(card.type)){
     const need=['chariot','horse','cannon'].filter(t=>t!==card.type);
@@ -949,28 +931,43 @@ function canAGang(pid){
 }
 function canHuR(pid,card){
   if(!card||G.lastDiscardBy===pid)return false;
+  // 手上已有3張同色同字，別人打第4張→強制開槓，不能胡
+  if(cntIn(G.hands[pid],card)>=3) return false;
   const testHand=[...G.hands[pid],card];
-  return calcTai(testHand,G.melds[pid])>=10;
+  const meldSum=G.melds[pid].reduce((s,m)=>s+mTai(m),0);
+  const {canWin,tai}=evaluateHand(testHand,true);
+  return canWin && meldSum+tai>=10;
 }
 function canHuS(pid){
-  return calcTai(G.hands[pid],G.melds[pid])>=10;
+  const meldSum=G.melds[pid].reduce((s,m)=>s+mTai(m),0);
+  const {canWin,tai}=evaluateHand(G.hands[pid],true); // winMode=true
+  return canWin && meldSum+tai>=10;
 }
 
 // ── Buttons ──
 function updateButtons(){
-  const my=G.currentPlayer===0;
-  const react=G.waitingForReact&&!G.reactDone.includes(0)&&G.reactors.includes(0);
-  const card=G.lastDiscard;
-  const ok=!G.gameOver;
-  setBtn('btn-draw', ok&&my&&!G.hasDrawn&&G.deck.length>0&&!G.waitingForReact);
-  // B2: 強制開槓時不能打牌
-  const forcedGang=G.mustGang&&my&&G.phase==='discard';
-  setBtn('btn-discard', ok&&my&&G.phase==='discard'&&!!G.selectedCard&&!G.waitingForReact&&!forcedGang);
-  setBtn('btn-chi',  ok&&react&&canChi(0,card));
-  setBtn('btn-peng', ok&&react&&canPeng(0,card));
-  setBtn('btn-gang', ok&&((react&&canMGang(0,card))||(my&&G.phase==='discard'&&G.hasDrawn&&!!canAGang(0))));
-  setBtn('btn-hu',   ok&&((react&&canHuR(0,card))||(my&&G.phase==='discard'&&G.hasDrawn&&canHuS(0))));
-  setBtn('btn-pass', ok&&react);
+  try {
+    const my=G.currentPlayer===0;
+    const react=G.waitingForReact&&!G.reactDone.includes(0)&&G.reactors.includes(0);
+    const card=G.lastDiscard;
+    const ok=!G.gameOver;
+    setBtn('btn-draw', ok&&my&&!G.hasDrawn&&G.deck.length>0&&!G.waitingForReact);
+    // B2: 強制開槓時不能打牌
+    const forcedGang=!!(G.mustGang&&my&&G.phase==='discard');
+    setBtn('btn-discard', ok&&my&&G.phase==='discard'&&G.hasDrawn&&!!G.selectedCard&&!G.waitingForReact&&!forcedGang);
+    // 強制開槓時槓按鈕要亮起
+    setBtn('btn-chi',  ok&&react&&canChi(0,card));
+    setBtn('btn-peng', ok&&react&&canPeng(0,card));
+    setBtn('btn-gang', ok&&((react&&canMGang(0,card))||(my&&G.phase==='discard'&&G.hasDrawn&&(!!canAGang(0)||!!G.mustGang))));
+    let huS=false;
+    try{ huS=my&&G.phase==='discard'&&G.hasDrawn&&canHuS(0); }catch(e){}
+    let huR=false;
+    try{ huR=react&&canHuR(0,card); }catch(e){}
+    setBtn('btn-hu', ok&&(huR||huS));
+    setBtn('btn-pass', ok&&react);
+  } catch(e) {
+    console.error('updateButtons error:', e);
+  }
 }
 function setBtn(id,en){document.getElementById(id).disabled=!en;}
 
@@ -1067,7 +1064,8 @@ function playerGang(){
   const react=G.waitingForReact&&!G.reactDone.includes(0)&&G.reactors.includes(0);
   if(react&&canMGang(0,G.lastDiscard)){doMGang(0);return;}
   if(G.currentPlayer===0&&G.phase==='discard'&&G.hasDrawn){
-    const ag=canAGang(0);
+    // 強制開槓 or 一般暗槓
+    const ag=G.mustGang||canAGang(0);
     if(ag){doAGang(0,ag);G.mustGang=null;}
   }
 }
