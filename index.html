@@ -564,25 +564,65 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random
 
 let G={};
 
+function nextRound(){
+  const nextZhuang = G._nextZhuang ?? 0;
+  const prevScores = [...G.scores];
+  startGame(nextZhuang, prevScores);
+}
+
 function newGame(){
+  startGame(0, [0,0,0,0]);
+}
+
+function startGame(zhuang, scores){
   hideModal();
   const deck=shuffle(buildDeck());
-  const hands=[deck.splice(0,21),deck.splice(0,20),deck.splice(0,20),deck.splice(0,20)];
-  for(let i=0;i<4;i++)sortHand(hands[i]);
-  G={deck,hands,melds:[[],[],[],[]],discards:[[],[],[],[]],
-    scores:[0,0,0,0],currentPlayer:0,zhuang:0,
-    phase:'discard',hasDrawn:true,lastDiscard:null,lastDiscardBy:-1,
-    selectedCard:null,waitingForReact:false,reactors:[],reactDone:[],gameOver:false,round:1,
-    chiCardIds:new Set(),mustGang:null,_pendingCpuR:null};
-  // B2: 起手檢查暗槓
-  const ag0=canAGang(0);
-  if(ag0){
-    G.mustGang=ag0;
-    log(`新遊戲開始！你是莊家，有暗槓（${CZH[ag0.color]}${ag0.top}），請先開槓！`,true);
-  } else {
-    log('新遊戲開始！你是莊家，請先打出一張牌。',true);
+  // 依莊家位置發牌：莊家21張，其餘20張
+  // 手牌陣列固定 index 0=玩家，重新對應座位
+  const hands=[];
+  for(let i=0;i<4;i++){
+    hands[i] = deck.splice(0, i===zhuang ? 21 : 20);
   }
+  for(let i=0;i<4;i++)sortHand(hands[i]);
+
+  G={deck,hands,melds:[[],[],[],[]],discards:[[],[],[],[]],
+    scores,currentPlayer:zhuang,zhuang,
+    phase:'discard',hasDrawn:true,lastDiscard:null,lastDiscardBy:-1,
+    selectedCard:null,waitingForReact:false,reactors:[],reactDone:[],
+    gameOver:false,round:(G.round||0)+1,
+    chiCardIds:new Set(),mustGang:null,_pendingCpuR:null,_nextZhuang:null};
+
+  // 更新標題列莊家資訊
+  const zhuangName = zhuang===0?'你':pn(zhuang);
+  document.getElementById('round-info').textContent=`第${G.round}局　莊家：${zhuangName}`;
+
+  // 更新玩家標籤
+  document.querySelector('#dot-0').parentElement.childNodes.forEach(n=>{
+    if(n.nodeType===3) n.textContent=''; // 清空文字節點
+  });
+  const playerLabel = document.querySelector('.player-name');
+  if(playerLabel){
+    playerLabel.lastChild.textContent = zhuang===0 ? '你（莊家）' : '你';
+  }
+
+  // B2: 起手暗槓（只針對玩家0）
+  if(zhuang===0||true){ // 所有人都要檢查，但只對玩家0提示
+    const ag0=canAGang(0);
+    if(ag0){
+      G.mustGang=ag0;
+      log(`新局開始！莊家：${zhuangName}。你有暗槓（${CZH[ag0.color]}${ag0.top}），請先開槓！`,true);
+    } else {
+      if(zhuang===0) log('新局開始！你是莊家，請先打出一張牌。',true);
+      else log(`新局開始！莊家：${zhuangName}。`,true);
+    }
+  }
+
   render();updateButtons();
+
+  // 如果莊家是電腦，讓電腦先打牌
+  if(zhuang!==0){
+    setTimeout(()=>cpuDiscard(zhuang), 800);
+  }
 }
 
 const TO={general:0,advisor:1,elephant:2,chariot:3,horse:4,cannon:5,soldier:6};
@@ -1174,10 +1214,13 @@ function declHu(winner,loser,card,self){
   const tai=calcTai(th,G.melds[winner]);
   sfxHu();log(`🀄 ${pn(winner)} ${self?'自摸':'胡牌'}！${tai}台`,true);
   if(winner===0||loser===0)G.scores[0]+=(winner===0?tai:-tai);
+  // 胡牌者成為下一輪莊家
+  G._nextZhuang=winner;
   render();
-  showModal(`🀄 ${pn(winner)} ${self?'自摸':'胡牌'}！`,
-    `<p><strong>${tai} 台</strong></p>${!self&&loser>=0?`<p>放銃：${pn(loser)}</p>`:''}<hr style="border-color:rgba(212,160,23,.3);margin:8px 0;"><p>累積分數：<strong>${G.scores[0]}</strong></p>`,
-    [{text:'繼續新局',action:'newGame()'}]);
+  const winnerName=pn(winner);
+  showModal(`🀄 ${winnerName} ${self?'自摸':'胡牌'}！`,
+    `<p><strong>${tai} 台</strong></p>${!self&&loser>=0?`<p>放銃：${pn(loser)}</p>`:''}<hr style="border-color:rgba(212,160,23,.3);margin:8px 0;"><p>下一局莊家：<strong>${winnerName}</strong></p><p>累積分數：<strong>${G.scores[0]}</strong></p>`,
+    [{text:'繼續新局',action:'nextRound()'}]);
 }
 
 function playerPass(){
