@@ -1041,16 +1041,25 @@ function canAGang(pid){
 }
 function canHuR(pid,card){
   if(!card||G.lastDiscardBy===pid)return false;
-  // 手上已有3張同色同字，別人打第4張→強制開槓，不能胡
   if(cntIn(G.hands[pid],card)>=3) return false;
   const testHand=[...G.hands[pid],card];
   const meldSum=G.melds[pid].reduce((s,m)=>s+mTai(m),0);
   const {canWin,tai}=evaluateHand(testHand,true);
+  if(pid===0&&canWin&&meldSum+tai>=10){
+    console.log('[canHuR] tai='+tai+' meldSum='+meldSum+' total='+(meldSum+tai));
+    console.log('[canHuR] hand='+testHand.map(c=>c.color+c.top).join(','));
+    console.log('[canHuR] melds='+G.melds[pid].map(m=>mname(m)+mTai(m)+'台').join(','));
+  }
   return canWin && meldSum+tai>=10;
 }
 function canHuS(pid){
   const meldSum=G.melds[pid].reduce((s,m)=>s+mTai(m),0);
-  const {canWin,tai}=evaluateHand(G.hands[pid],true); // winMode=true
+  const {canWin,tai}=evaluateHand(G.hands[pid],true);
+  if(pid===0&&canWin&&meldSum+tai>=10){
+    console.log('[canHuS] tai='+tai+' meldSum='+meldSum+' total='+(meldSum+tai));
+    console.log('[canHuS] hand='+G.hands[pid].map(c=>c.color+c.top).join(','));
+    console.log('[canHuS] melds='+G.melds[pid].map(m=>mname(m)+mTai(m)+'台').join(','));
+  }
   return canWin && meldSum+tai>=10;
 }
 
@@ -1233,37 +1242,43 @@ function playerPass(){
 
 // ── Reaction ──
 function startReact(by,card){
-  // 胡牌優先：先檢查所有人能否胡
-  // 玩家0能胡→立即讓玩家決定（CPU胡也立即宣告）
+  // 1. 先找所有能胡的人
   const huPlayers=[];
-  for(let i=0;i<4;i++){if(i===by)continue;if(canHuR(i,card))huPlayers.push(i);}
+  for(let i=0;i<4;i++){if(i!==by&&canHuR(i,card))huPlayers.push(i);}
 
-  // CPU 能胡→直接宣告（最高優先）
-  for(const pid of huPlayers){
-    if(pid!==0){declHu(pid,by,card,false);return;}
+  // 2. 有人能胡時：胡優先，碰/吃/槓全部暫停
+  if(huPlayers.length>0){
+    // CPU能胡→直接宣告（CPU不需要選擇）
+    const cpuHu=huPlayers.filter(i=>i!==0);
+    if(cpuHu.length>0){declHu(cpuHu[0],by,card,false);return;}
+
+    // 玩家0能胡→顯示胡/過選項，CPU全部等待（包含能碰/槓的CPU）
+    if(huPlayers.includes(0)){
+      const allCpuR=[];
+      for(let i=1;i<4;i++){
+        if(i!==by&&(canMGang(i,card)||canPeng(i,card)||canChi(i,card)))allCpuR.push(i);
+      }
+      G.waitingForReact=true;
+      G.reactors=[0];  // 只有玩家0需要決定
+      G.reactDone=[];
+      G._pendingCpuR=allCpuR; // CPU等玩家決定後再反應
+      render();updateButtons();
+      return;
+    }
   }
 
-  // 收集所有可反應的玩家（胡/槓/碰/吃）
+  // 3. 沒人能胡→正常處理碰/槓/吃
   const rs=[];
   for(let i=0;i<4;i++){
     if(i===by)continue;
-    if(canHuR(i,card)||canMGang(i,card)||canPeng(i,card)||canChi(i,card))rs.push(i);
+    if(canMGang(i,card)||canPeng(i,card)||canChi(i,card))rs.push(i);
   }
   if(!rs.length){nextTurn(by);return;}
 
   G.waitingForReact=true;G.reactors=rs;G.reactDone=[];
+  G._pendingCpuR=null;
   render();updateButtons();
 
-  // 玩家0能胡→讓玩家先決定，CPU等待
-  if(huPlayers.includes(0)){
-    // 只讓玩家決定，CPU暫不行動
-    const cpuR=rs.filter(i=>i!==0);
-    // CPU先標記為「等待」，等玩家決定後再繼續
-    G._pendingCpuR=cpuR;
-    return;
-  }
-
-  // 玩家0不能胡→CPU可以正常碰/槓/吃
   const cpuR=rs.filter(i=>i!==0);
   if(cpuR.length)setTimeout(()=>cpuReactAll(cpuR,0),500);
   if(!rs.includes(0)){G.reactDone.push(0);chkReact();}
